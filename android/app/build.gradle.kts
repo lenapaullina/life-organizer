@@ -17,8 +17,11 @@ isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.vergissmeinnicht"
+        // Bewusst eine eigene, andere Application ID als vorher: Android
+        // (und iOS) behandeln jede App-ID als komplett eigene App. So
+        // lässt sich diese Version parallel zur alten installieren,
+        // ohne dass eine Installation die andere ersetzt/löscht.
+        applicationId = "com.example.vergissmeinnicht2"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

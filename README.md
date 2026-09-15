@@ -466,3 +466,33 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
+
+## Update: "Version 2" – parallel zur alten App installierbar
+
+Auf Wunsch installierbar, OHNE die bisherige App vom Handy zu
+verdrängen (letztes Mal war das Update/Ersetzen der App auf dem Handy
+umständlich):
+
+- Android: `applicationId` in `android/app/build.gradle.kts` von
+  `com.example.vergissmeinnicht` auf `com.example.vergissmeinnicht2`
+  geändert; Anzeigename in `AndroidManifest.xml` auf
+  "Vergissmeinnicht 2" gesetzt
+- iOS: `PRODUCT_BUNDLE_IDENTIFIER` in `project.pbxproj` ebenso auf
+  `com.example.vergissmeinnicht2`, Anzeigename in `Info.plist` auf
+  "Vergissmeinnicht 2"
+- `pubspec.yaml`-Version auf `0.2.0+2` erhöht
+
+**Wichtig zu wissen:** Android/iOS behandeln eine andere App-ID als
+komplett neue, eigenständige App – genau deshalb können beide Versionen
+gleichzeitig auf dem Handy installiert sein, ohne sich zu
+überschreiben. Das bedeutet aber auch: "Vergissmeinnicht 2" startet
+mit einer **leeren** Datenbank (eigene App-Sandbox, kein Zugriff auf
+die Daten der alten App) – Haushaltsaufgaben, Routinen, Kontakte usw.
+müssen dort neu angelegt werden. Die alte App und ihre Daten bleiben
+davon unberührt.
+
+Sobald "Version 2" sich bewährt hat, kann bei Bedarf die
+`applicationId` wieder zurückgeändert werden (dann ersetzt sie beim
+nächsten Installieren die alte App inkl. Daten) – oder es wird
+später eine Export/Import-Funktion für den Umzug der Daten ergänzt,
+falls gewünscht.

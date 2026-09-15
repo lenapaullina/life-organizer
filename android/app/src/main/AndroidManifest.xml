@@ -2,7 +2,7 @@
     <!-- Für die Sprache-zu-Text-Funktion im Brain Dump (speech_to_text) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:label="vergissmeinnicht"
+        android:label="Vergissmeinnicht 2"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

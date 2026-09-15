@@ -9,6 +9,7 @@ import '../../vorrat/presentation/pantry_screen.dart';
 import '../../watchlist/presentation/watchlist_screen.dart';
 import '../../wo_liegt_was/presentation/storage_locations_screen.dart';
 import '../../zutatenplaner/presentation/zutatenplaner_screen.dart';
+import 'style_showcase_screen.dart';
 
 /// Bündelt Module, die man seltener öffnet als Haushalt/Routinen,
 /// als Liste statt als eigene Bottom-Nav-Tabs. So bleibt die
@@ -60,6 +61,11 @@ class MoreScreen extends StatelessWidget {
         icon: Icons.swap_horiz,
         label: 'Ausleihe',
         builder: (BuildContext _) => const LoanScreen(),
+      ),
+      (
+        icon: Icons.style_outlined,
+        label: 'Style-Vorschau',
+        builder: (BuildContext _) => const StyleShowcaseScreen(),
       ),
     ];
 

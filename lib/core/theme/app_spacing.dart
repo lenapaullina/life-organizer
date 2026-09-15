@@ -11,7 +11,9 @@ class AppSpacing {
   static const double xl = 32;
   static const double xxl = 48;
 
-  static const double cardRadius = 16;
-  static const double buttonRadius = 12;
+  // Bewusst kantiger als vorher (16/12) für den MySpace/Y2K-Look:
+  // spürbar abgerundet, aber nicht "modern-rund".
+  static const double cardRadius = 8;
+  static const double buttonRadius = 6;
   static const double pillRadius = 999;
 }

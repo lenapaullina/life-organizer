@@ -127,19 +127,31 @@ class _BrainDumpCaptureState extends ConsumerState<BrainDumpCapture> {
         const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
-            const Text('Priorität:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-            const SizedBox(width: AppSpacing.sm),
-            for (var i = 0; i < 3; i++)
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: ChoiceChip(
-                  label: Text(_priorityLabels[i]),
-                  selected: _priority == i,
-                  selectedColor: priorityColor(i).withOpacity(0.25),
-                  onSelected: (_) => setState(() => _priority = i),
+            // Mikro- und Senden-Button sollen NIE vom Rand abgeschnitten
+            // werden – deshalb bekommt nur der Label+Chips-Teil einen
+            // begrenzten, bei Bedarf horizontal scrollbaren Bereich,
+            // statt dass alles in einer nicht umbrechenden Row landet.
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    const Text('Priorität:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    const SizedBox(width: AppSpacing.sm),
+                    for (var i = 0; i < 3; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.xs),
+                        child: ChoiceChip(
+                          label: Text(_priorityLabels[i]),
+                          selected: _priority == i,
+                          selectedColor: priorityColor(i).withOpacity(0.25),
+                          onSelected: (_) => setState(() => _priority = i),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            const Spacer(),
+            ),
             IconButton(
               onPressed: _toggleListening,
               tooltip: _isListening ? 'Aufnahme stoppen' : 'Per Sprache eintippen',

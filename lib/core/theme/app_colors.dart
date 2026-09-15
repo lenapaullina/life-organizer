@@ -1,30 +1,37 @@
 import 'package:flutter/material.dart';
 
-/// Bewusst reizarme Farbpalette: wenig Sättigung im Grundton,
-/// klar unterscheidbare (aber nicht grelle) Statusfarben.
-/// Die Statusfarben sind das einzige "laute" Element der App –
-/// alles andere bleibt ruhig, damit Status wirklich ins Auge fällt.
+/// Y2K / 2000er-MySpace-Palette: dunkler Untergrund, zwei laute
+/// Neon-Akzente (Pink + Cyan), Statusfarben bleiben als eigenes,
+/// erkennbares Ampel-Set erhalten – nur eben jetzt neongrell statt
+/// gedämpft, damit sie im dunklen Grundton trotzdem sofort auffallen.
 class AppColors {
   AppColors._();
 
-  // Neutrale Basis – leichter Lila-Stich statt reinem Grau/Weiß
-  static const background = Color(0xFFFBF6FB);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceMuted = Color(0xFFF3EAF6);
-  static const textPrimary = Color(0xFF352A38);
-  static const textSecondary = Color(0xFF7A6B7E);
-  static const border = Color(0xFFE6D9ED);
+  // Dunkler Grundton statt hellem Lila-Weiß – das eigentliche "MySpace
+  // bei Nacht"-Gefühl kommt vor allem von diesem tiefen Hintergrund.
+  static const background = Color(0xFF121214);
+  static const surface = Color(0xFF1E1E24);
+  static const surfaceMuted = Color(0xFF2A2A32);
+  static const textPrimary = Color(0xFFFFFFFF);
+  static const textSecondary = Color(0xFFB8B8C2);
+  static const border = Color(0xFFFF1493);
 
-  // Statusfarben – bewusst unverändert, das ist das wichtigste Signal der App
-  static const statusGreen = Color(0xFF4C9A6A);
-  static const statusGreenBg = Color(0xFFE6F2EA);
-  static const statusYellow = Color(0xFFCF9A2E);
-  static const statusYellowBg = Color(0xFFFBF0DC);
-  static const statusRed = Color(0xFFC0564D);
-  static const statusRedBg = Color(0xFFF7E5E3);
+  // Statusfarben – bewusst weiterhin ein eigenes Grün/Gelb/Rot-Set
+  // (siehe status_calculator.dart), nur jetzt als Neon-Variante,
+  // damit die Ampel im dunklen Theme genauso sofort lesbar bleibt.
+  static const statusGreen = Color(0xFF39FF14);
+  static const statusGreenBg = Color(0xFF163019);
+  static const statusYellow = Color(0xFFFFD600);
+  static const statusYellowBg = Color(0xFF332B0A);
+  static const statusRed = Color(0xFFFF3860);
+  static const statusRedBg = Color(0xFF33111A);
 
-  // Akzent – gedämpftes Lila/Magenta statt MySpace-Neon, sparsam einsetzen
-  static const accent = Color(0xFF8B5FBF);
-  static const accentBg = Color(0xFFF1E6F5);
-  static const accentPink = Color(0xFFC15FA3);
+  // Primärer Akzent: Neon-Pink/Magenta (der "MySpace-Pink" schlechthin).
+  static const accent = Color(0xFFFF1493);
+  static const accentBg = Color(0xFF33101F);
+  static const accentPink = Color(0xFFFF1493);
+
+  // Sekundärer Akzent: Cyan, für Links/zweite Hervorhebung – im
+  // Original-MySpace-Stil das "besuchter Link/Hover"-Türkis.
+  static const accentCyan = Color(0xFF00E5FF);
 }

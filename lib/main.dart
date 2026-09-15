@@ -24,7 +24,7 @@ class LifeOrganizerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Vergissmeinnicht',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
+      theme: AppTheme.dark,
       home: const _RootScreen(),
     );
   }

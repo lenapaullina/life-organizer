@@ -496,3 +496,57 @@ Sobald "Version 2" sich bewährt hat, kann bei Bedarf die
 nächsten Installieren die alte App inkl. Daten) – oder es wird
 später eine Export/Import-Funktion für den Umzug der Daten ergänzt,
 falls gewünscht.
+
+## Update: MySpace/Y2K-Redesign (komplettes Theme umgestellt) + Bugfix
+
+**Bugfix:** In der Brain-Dump-Eingabe konnte die Prioritäts-Zeile auf
+schmalen Screens überlaufen, wodurch Mikro- und Senden-Button rechts
+über den Bildschirmrand hinausragten. Die Prioritäts-Chips laufen
+jetzt in einem eigenen, bei Bedarf horizontal scrollbaren Bereich
+(`brain_dump_widget.dart`), Mikro- und Senden-Button bleiben immer
+komplett sichtbar am rechten Rand.
+
+**Redesign:** Die App läuft jetzt standardmäßig im dunklen
+MySpace/Y2K-Look (Neon-Pink + Cyan auf sehr dunklem Grund) statt im
+hellen Lila-Pink-Theme:
+
+- `core/theme/app_colors.dart` – gleiche Feldnamen wie vorher (damit
+  nichts an bestehenden Screens angepasst werden musste), aber neue
+  Werte: dunkler Hintergrund, Neon-Pink als Hauptakzent, neues
+  `accentCyan` als zweiter Akzent, Status-Ampel (Grün/Gelb/Rot) als
+  Neon-Variante
+- `core/theme/app_spacing.dart` – Card-/Button-Radien kantiger (8/6
+  statt 16/12)
+- `core/theme/app_theme.dart` – `AppTheme.light` durch `AppTheme.dark`
+  ersetzt (dickere, farbige Ränder statt weicher Schatten, Neon-Glow
+  auf Überschriften, Cyan-Fokusrahmen bei Eingabefeldern); in
+  `main.dart` als Standard-Theme eingetragen
+- Da Farben/Radien zentral über Token laufen, übernehmen alle
+  bestehenden Screens den neuen Look automatisch, ohne dass sie
+  einzeln angefasst werden mussten
+
+**Neue wiederverwendbare Komponenten** (`shared/widgets/`):
+- `MySpaceCard` – Profilmodul-Optik mit farbigem Header-Balken + Titel
+- `MySpaceButton` – Retro-Button mit dickem Rand + Neon-Glow
+- `MySpaceBadge` – Tag/Badge im Forum-"Blinkie"-Stil
+
+**Beispiel-Screen:** `features/mehr/presentation/style_showcase_screen.dart`,
+erreichbar über "Style-Vorschau" im "Mehr"-Bereich, zeigt alle drei
+Komponenten in einem Profilseiten-artigen Beispiel-Layout.
+
+**Zu bedenken:** Das ursprüngliche Grunddesign-Prinzip der App war
+bewusst reizarm (siehe ganz oben in diesem README). Ein dunkles
+Neon-Theme ist optisch lauter – die Status-Ampel wurde deshalb bewusst
+als eigenständiges, klar erkennbares Signal beibehalten (nur neon
+statt gedämpft), damit die Kernfunktion (Status auf einen Blick) nicht
+leidet. Falls sich der Kontrast/Glow im Alltag doch als zu viel
+anfühlt, lässt sich das über die zentralen Farb-/Spacing-Token leicht
+nachjustieren, ohne Screens einzeln anzufassen.
+
+## Nach dem Update ausführen
+
+```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter run
+```

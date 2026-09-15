@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -29,6 +30,58 @@ class _BrainDumpCaptureState extends ConsumerState<BrainDumpCapture> {
   String? _category;
   int _priority = 1;
 
+  // "Brain Dump" Audio-Notiz: spricht direkt in dasselbe Textfeld,
+  // damit danach alles (Kategorie/Priorität wählen, abschicken) genau
+  // wie beim Eintippen weitergeht – keine separate Audio-Ablage.
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+  String _textBeforeListening = '';
+
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+
+    final available = await _speech.initialize(
+      onStatus: (status) {
+        if ((status == 'done' || status == 'notListening') && mounted) {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (_) {
+        if (mounted) setState(() => _isListening = false);
+      },
+    );
+
+    if (!available) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Spracherkennung nicht verfügbar – Mikrofon-Berechtigung erteilt?'),
+          ),
+        );
+      }
+      return;
+    }
+
+    _textBeforeListening = _controller.text;
+    setState(() => _isListening = true);
+
+    await _speech.listen(
+      localeId: 'de_DE',
+      onResult: (result) {
+        final separator = _textBeforeListening.trim().isEmpty ? '' : ' ';
+        final newText = '$_textBeforeListening$separator${result.recognizedWords}';
+        _controller.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: newText.length),
+        );
+      },
+    );
+  }
+
   Future<void> _submit() async {
     final text = _controller.text;
     if (text.trim().isEmpty) return;
@@ -39,6 +92,7 @@ class _BrainDumpCaptureState extends ConsumerState<BrainDumpCapture> {
   @override
   void dispose() {
     _controller.dispose();
+    _speech.stop();
     super.dispose();
   }
 
@@ -86,6 +140,14 @@ class _BrainDumpCaptureState extends ConsumerState<BrainDumpCapture> {
                 ),
               ),
             const Spacer(),
+            IconButton(
+              onPressed: _toggleListening,
+              tooltip: _isListening ? 'Aufnahme stoppen' : 'Per Sprache eintippen',
+              icon: Icon(
+                _isListening ? Icons.mic : Icons.mic_none_outlined,
+                color: _isListening ? AppColors.statusRed : null,
+              ),
+            ),
             IconButton.filled(onPressed: _submit, icon: const Icon(Icons.arrow_upward)),
           ],
         ),

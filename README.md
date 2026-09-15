@@ -376,3 +376,93 @@ Dieser Code wurde in einer Umgebung ohne Flutter-SDK geschrieben und
 konnte nicht kompiliert werden. Nach `flutter pub get` und
 `build_runner build` können vereinzelt Typ- oder API-Anpassungen
 nötig sein, insbesondere bei den Drift-Versionen aus der `pubspec.yaml`.
+
+## Update: Feature-Runde (Aufgabe-Zerstückler, Würfel, Watchlist, Ausleihe, Audio-Brain-Dump, Erfolgs-Logbook)
+
+Auch diese Runde wurde ohne Flutter-SDK geschrieben (siehe oben) – bitte
+nach dem Einspielen einmal komplett durchklicken.
+
+**"Aufgabe Zerstückler" (Micro-Task Splitter)** – `features/haushalt/micro_task_splitter.dart`
++ `features/haushalt/presentation/micro_task_splitter_sheet.dart`:
+- Neuer Button (✨-Icon) auf jeder Haushaltsaufgaben-Karte öffnet ein
+  Sheet, das die Aufgabe in 2-Minuten-Schritte zerlegt
+- Bewusst OHNE echte KI/Netzwerk-Anbindung (App bleibt komplett
+  lokal): feste Templates nach Stichwort im Aufgabennamen (Küche, Bad,
+  Wohnzimmer, Wäsche, Müll, Schlafzimmer), sonst ein generischer
+  Fallback, der für jede Aufgabe funktioniert
+- "Eigene Schritte eintippen" als Alternative, falls kein Template
+  passt (ein Schritt pro Zeile)
+- Häkchen sind bewusst nur für die aktuelle Sitzung (keine neue
+  Tabelle nötig); "Ganze Aufgabe erledigt" im Sheet ruft denselben
+  `markCompleted`-Flow wie der normale "Heute erledigt"-Button auf
+
+**"Random Task Generator" / Würfel-Button** – `features/haushalt/presentation/random_task_screen.dart`:
+- Neues Würfel-Icon in der Haushalt-AppBar
+- Wählt zufällig GENAU eine fällige/bald fällige Aufgabe (gelb/rot)
+  aus und blendet den Rest komplett aus; gibt es nichts Fälliges,
+  zählt jede Aufgabe
+- "Andere Aufgabe würfeln" zum Neu-Würfeln, "Heute erledigt" direkt
+  aus dem Vollbild-Screen heraus
+
+**Watchlist-Erweiterung** – `features/watchlist/`:
+- Komplett neues Modul (vorher gab es noch keine Watchlist im Code):
+  Titel, "Wo streambar?" (Freitext) und Stimmungs-Tag (Comfort Show /
+  Seichte Unterhaltung / Hohe Aufmerksamkeit)
+- Filter-Chips oben im Screen, damit man bei Überreizung direkt nach
+  Stimmung filtern kann statt zu suchen
+- Erreichbar über "Watchlist" im "Mehr"-Bereich
+
+**Ausleiher & Verliehen-Tracker** – `features/ausleihe/`:
+- Neues Modul: Gegenstand, Person, Richtung (Verliehen/Geliehen),
+  Datum, optionale Notiz, "Zurückgegeben"-Häkchen
+- Filter-Chips (Alle/Verliehen/Geliehen), offene Einträge zuerst
+- Erreichbar über "Ausleihe" im "Mehr"-Bereich
+
+**Brain-Dump Audio-Notiz** – `features/brain_dump/presentation/brain_dump_widget.dart`:
+- Neues Mikrofon-Icon direkt neben dem Absenden-Pfeil der
+  Brain-Dump-Eingabe
+- Nutzt das neue Paket `speech_to_text` (in `pubspec.yaml` ergänzt,
+  Version ungeprüft – ggf. beim `flutter pub get` anpassen), spricht
+  direkt in dasselbe Textfeld, Kategorie/Priorität/Absenden
+  funktionieren danach wie beim Eintippen
+- Android: `RECORD_AUDIO`-Berechtigung + `<queries>`-Eintrag für den
+  Spracherkennungsdienst in `AndroidManifest.xml` ergänzt
+- iOS: `NSMicrophoneUsageDescription` +
+  `NSSpeechRecognitionUsageDescription` in `Info.plist` ergänzt
+- Wichtig zu wissen: die eigentliche Spracherkennung läuft über den
+  Sprachdienst des Betriebssystems (auf vielen Geräten on-device,
+  auf manchen ggf. über einen Google-Dienst) – das liegt außerhalb
+  der Kontrolle dieser App, genau wie bei jeder anderen App, die
+  `speech_to_text` nutzt
+
+**Dopamin-Speicher / Erfolgs-Logbook** – `features/gamification/presentation/success_logbook_screen.dart`:
+- Neuer Screen, erreichbar über "Erfolgs-Logbook ansehen" unter der
+  bestehenden "Deine Wiese"-Karte auf dem Start-Screen
+- Fasst alle bisherigen Erfolge (erledigte Haushaltsaufgaben +
+  komplett abgeschlossene Routinen) nach Monat gruppiert zusammen,
+  neuester Monat zuerst: "Das hast du im September 2026 alles
+  gerockt!"
+- Nutzt ausschließlich bereits vorhandene Daten (Task-Completion-Logs,
+  Routine-Completions) – keine neue Tabelle, keine doppelte
+  Datenhaltung
+
+**Technische Notiz zur Persistenz:** Watchlist und Ausleihe-Tracker
+nutzen bewusst NICHT Drift/SQLite wie die anderen Module, sondern
+einen einfachen neuen JSON-Datei-Store
+(`core/storage/json_list_store.dart` + `json_backed_notifier.dart`).
+Grund: eine neue Drift-Tabelle braucht einen `build_runner`-Lauf, der
+die große generierte `database.g.dart` aktualisiert – das konnte in
+der Umgebung, in der dieser Code geschrieben wurde, nicht ausgeführt
+werden, und von Hand in dieser Datei zu editieren wäre sehr
+fehleranfällig gewesen. Beide neuen Module sind dadurch genauso rein
+lokal (keine Cloud, kein Netzwerk) wie der Rest der App, nur eben ohne
+SQL. Falls gewünscht, können sie später bei Gelegenheit auf Drift
+migriert werden.
+
+## Nach dem Update ausführen
+
+```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter run
+```

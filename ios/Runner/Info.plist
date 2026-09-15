@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Wird für die Sprach-Notiz im Brain Dump gebraucht.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Wird gebraucht, um gesprochene Brain-Dump-Notizen in Text umzuwandeln.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

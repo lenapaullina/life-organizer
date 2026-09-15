@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Für die Sprache-zu-Text-Funktion im Brain Dump (speech_to_text) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
         android:label="vergissmeinnicht"
         android:name="${applicationName}"
@@ -40,6 +42,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Damit speech_to_text ab Android 11+ den Spracherkennungsdienst
+             des Geräts finden kann. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 </manifest>

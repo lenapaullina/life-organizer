@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../ausleihe/presentation/loan_screen.dart';
 import '../../budget/presentation/budget_screen.dart';
 import '../../gesundheit/presentation/gesundheit_screen.dart';
 import '../../kontakte/presentation/contacts_screen.dart';
 import '../../vorrat/presentation/pantry_screen.dart';
+import '../../watchlist/presentation/watchlist_screen.dart';
 import '../../wo_liegt_was/presentation/storage_locations_screen.dart';
 import '../../zutatenplaner/presentation/zutatenplaner_screen.dart';
 
@@ -48,6 +50,16 @@ class MoreScreen extends StatelessWidget {
         icon: Icons.soup_kitchen_outlined,
         label: 'Zutatenplaner',
         builder: (BuildContext _) => const ZutatenplanerScreen(),
+      ),
+      (
+        icon: Icons.movie_outlined,
+        label: 'Watchlist',
+        builder: (BuildContext _) => const WatchlistScreen(),
+      ),
+      (
+        icon: Icons.swap_horiz,
+        label: 'Ausleihe',
+        builder: (BuildContext _) => const LoanScreen(),
       ),
     ];
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../application/gamification_providers.dart';
+import 'success_logbook_screen.dart';
 
 /// Zeigt gesammelte Erfolge (Haushaltsaufgaben erledigt, Routinen
 /// komplett abgehakt) als Kuh-Emojis auf einer "Wiese". Rein positive
@@ -58,6 +59,15 @@ class CowMeadow extends ConsumerWidget {
                   ),
                 ),
             ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SuccessLogbookScreen()),
+              ),
+              child: const Text('Erfolgs-Logbook ansehen'),
+            ),
           ),
         ],
       ),

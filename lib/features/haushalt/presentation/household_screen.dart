@@ -12,6 +12,8 @@ import '../application/household_task_with_status.dart';
 import 'add_household_task_sheet.dart';
 import 'edit_household_task_dialog.dart';
 import 'household_history_screen.dart';
+import 'micro_task_splitter_sheet.dart';
+import 'random_task_screen.dart';
 
 /// Kleine positive Verstärkung nach dem Erledigen – rotiert zufällig,
 /// damit es sich nicht wie eine leere Floskel abnutzt.
@@ -37,6 +39,11 @@ class HouseholdScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Haushalt'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.casino_outlined),
+            tooltip: 'Zufällige Aufgabe',
+            onPressed: () => showRandomTaskScreen(context),
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Historie',
@@ -75,6 +82,29 @@ class _TaskCard extends ConsumerWidget {
 
   const _TaskCard({required this.entry});
 
+  Future<void> _markCompletedWithUndo(BuildContext context, WidgetRef ref, {
+    required String taskId,
+    required String taskName,
+  }) async {
+    final repo = ref.read(householdTaskRepositoryProvider);
+    await repo.markCompleted(taskId);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('"$taskName" erledigt ${_cheerFor(taskName)}'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Rückgängig',
+              onPressed: () => repo.undoLastCompletion(taskId),
+            ),
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final task = entry.task;
@@ -94,6 +124,17 @@ class _TaskCard extends ConsumerWidget {
                     task.name,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 20),
+                  tooltip: 'In Schritte zerlegen',
+                  onPressed: () async {
+                    final markDone = await showMicroTaskSplitterSheet(context, task.name);
+                    if (markDone == true && context.mounted) {
+                      await _markCompletedWithUndo(context, ref, taskId: task.id, taskName: task.name);
+                    }
+                  },
+                  visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
@@ -125,25 +166,12 @@ class _TaskCard extends ConsumerWidget {
               child: QuickActionButton(
                 label: 'Heute erledigt',
                 icon: Icons.check_circle_outline,
-                onPressed: () async {
-                  final repo = ref.read(householdTaskRepositoryProvider);
-                  await repo.markCompleted(task.id);
-
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context)
-                      ..clearSnackBars()
-                      ..showSnackBar(
-                        SnackBar(
-                          content: Text('"${task.name}" erledigt ${_cheerFor(task.name)}'),
-                          duration: const Duration(seconds: 3),
-                          action: SnackBarAction(
-                            label: 'Rückgängig',
-                            onPressed: () => repo.undoLastCompletion(task.id),
-                          ),
-                        ),
-                      );
-                  }
-                },
+                onPressed: () => _markCompletedWithUndo(
+                  context,
+                  ref,
+                  taskId: task.id,
+                  taskName: task.name,
+                ),
               ),
             ),
           ],

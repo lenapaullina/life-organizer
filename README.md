@@ -581,3 +581,89 @@ Repository-Methode (`deleteTask`) schon lange existierte. Jetzt:
 `household_screen.dart` ist dafür von `ConsumerWidget` zu
 `ConsumerStatefulWidget` geworden (braucht lokalen State für die
 offenen Lösch-Timer).
+
+## Update: Farb-Administration + "Cow Evolution" Gamification-System (Kuh-Milch, Merge-Weide, Special-Style-Shop)
+
+Zwei große neue, zusammenhängende Systeme:
+
+**1. Freie Farb-Administration (für alle, ohne Freischaltung):**
+Unter "Mehr → Farben & Milch-Shop → Tab 'Farben'" kann jetzt jede Nutzerin
+das Grunddesign frei anpassen: eigene Akzentfarbe (über einen
+abhängigkeitsfreien HSV-Farbwähler, `lib/features/theme_lab/presentation/hsv_color_picker.dart`),
+Hintergrundmodus (Dark/OLED/Light/Warm Neutral), Karten-/Containerfarbe
+(oder "automatisch"), plus drei Presets (Pastell, Minimalist Dark,
+High Contrast). Es gibt eine Live-Vorschau direkt im Editor. Die
+Einstellungen liegen in `CustomColorSettings`
+(`lib/features/theme_lab/domain/custom_color_settings.dart`) und werden
+über einen neuen `ThemeSettingsNotifier`
+(`lib/features/theme_lab/application/theme_settings_providers.dart`)
+verwaltet und lokal persistiert (siehe JSON-Store-Hinweis unten). Das
+komplette `ThemeData` der App (`main.dart`) wird jetzt dynamisch über
+`dynamicThemeProvider` gebaut, statt fest aus `AppTheme.dark` zu kommen
+– `app_theme.dart`/die alte MySpace-Konstante bleiben als Referenz im
+Code, werden aber nicht mehr verwendet.
+
+**2. "Cow Evolution" Merge-Spiel mit Kuh-Milch-Währung:**
+Jede erledigte Haushaltsaufgabe bringt 5 Kuh-Milch, jede komplett
+abgehakte Routine 12 Kuh-Milch (`lib/features/cow_evolution/`), plus –
+falls auf der Weide noch Platz ist (4x4-Raster, 16 Plätze) – eine neue
+Level-1-Kuh. Unter "Mehr → Kuh-Weide" lassen sich zwei gleich-levelige
+Kühe nacheinander antippen, um sie zu einer stärkeren Kuh zu
+verschmelzen (+ Milch-Bonus, abhängig vom neuen Level); höhere Level
+geben außerdem passiv Milch über Zeit (gedeckelt auf 8 Std. Offline-Zeit,
+damit reines Warten nicht der Hauptweg zu den teuren Styles wird).
+Zustand (`Cow`-Liste, Milch-Stand, freigeschaltete Styles) liegt in
+`CowPastureNotifier`/`CowPastureState`
+(`lib/features/cow_evolution/application/cow_pasture_providers.dart`).
+
+Wichtig: Das ist ein separates System von der bereits bestehenden
+"Deine Wiese 🐄" (`cow_meadow.dart`, zeigt nur die Erfolgs-ANZAHL als
+Deko-Emojis, kein Merge, keine Währung) – beide bleiben nebeneinander
+bestehen, um die bisherige Ansicht nicht zu verlieren.
+
+**3. Special-Style-Shop (mit Kuh-Milch freischaltbar):**
+Im Tab "Milch-Shop" desselben Screens gibt es vier feste Looks, wie
+gewünscht mit Preis, Beschreibung und Freischalt-/Aktivieren-Button:
+Y2K/Late-90s Cyber (200 Milch), Cyberpunk/Low-Poly Neon (350 Milch,
+mit Scanline-Deko-Hinweis), Pixel-Art/16-Bit Retro (500 Milch, mit
+eingebauter Monospace-Schrift statt echtem Pixel-Font), Grotesque
+Underground/Ink & Comic (750 Milch). Ein aktivierter Style überschreibt
+die freie Farbwahl, bis er im Shop wieder deaktiviert wird (Datenmodell:
+`SpecialStyleItem`, `lib/features/theme_lab/domain/special_style.dart`).
+
+**Bewusste Scoping-Entscheidungen (Transparenz wie bei den vorherigen
+Runden):**
+- Kein neues Drift-Schema (bräuchte `build_runner`, hier nicht
+  verfügbar) – Theme-Einstellungen und Kuh-Weide-Zustand liegen in
+  zwei einfachen JSON-Dateien über den neuen `JsonObjectStore`
+  (`lib/core/storage/json_object_store.dart`, das Pendant zum
+  bestehenden `JsonListStore` für genau ein Objekt statt einer Liste).
+- Kein externes Farbwähler-Package (z. B. `flutter_colorpicker`) – aus
+  dieser Sandbox lässt sich pub.dev nicht erreichen, um Version/API
+  zu prüfen. Stattdessen ein selbstgebauter Picker auf Basis von
+  Flutters eingebautem `HSVColor` + `Slider`.
+- Die vier Special-Styles sind über Farbpalette + Form/Rand/Radius/
+  Schriftart umgesetzt, nicht über echte CRT-Scanline-/Glitch-Shader,
+  echte Pixel-Font-Dateien oder handgezeichnete Tinten-Texturen – das
+  bräuchte zusätzliche Asset-/Package-Abhängigkeiten, die sich hier
+  ohne Netzwerk/Compiler nicht verifizieren lassen.
+- Fest hartcodierte Farb-Widgets wie `StatusPill` (die Grün/Gelb/Rot-
+  Ampel) bleiben bewusst UNVERÄNDERT von der dynamischen Theme-Wahl –
+  die "reizarme" Statuslogik soll immer gleich erkennbar bleiben, egal
+  welches Farbschema/welcher Special-Style gerade aktiv ist.
+- Der Merge auf der Weide läuft per Tippen/Auswählen (zwei Kühe
+  nacheinander antippen), nicht per echtem Drag&Drop – auf dem Handy
+  zuverlässiger und ohne Gesten-Konflikte mit dem Scrollen umsetzbar,
+  ohne die Spielmechanik selbst zu verändern.
+- `RoutineRepository.toggleItemForToday` gibt jetzt zusätzlich zurück,
+  ob die Routine dadurch komplett abgeschlossen wurde – kleine,
+  rückwärtskompatible Erweiterung (`Future<void>` → `Future<bool>`),
+  damit die UI den Routinen-Milch-Bonus exakt im richtigen Moment
+  auslösen kann.
+
+### Nach dem Update ausführen
+
+```bash
+flutter pub get
+flutter run
+```

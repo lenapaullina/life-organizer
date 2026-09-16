@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../ausleihe/presentation/loan_screen.dart';
 import '../../budget/presentation/budget_screen.dart';
+import '../../cow_evolution/presentation/cow_pasture_screen.dart';
 import '../../gesundheit/presentation/gesundheit_screen.dart';
 import '../../kontakte/presentation/contacts_screen.dart';
+import '../../theme_lab/presentation/theme_and_shop_screen.dart';
 import '../../vorrat/presentation/pantry_screen.dart';
 import '../../watchlist/presentation/watchlist_screen.dart';
 import '../../wo_liegt_was/presentation/storage_locations_screen.dart';
@@ -66,6 +68,16 @@ class MoreScreen extends StatelessWidget {
         icon: Icons.style_outlined,
         label: 'Style-Vorschau',
         builder: (BuildContext _) => const StyleShowcaseScreen(),
+      ),
+      (
+        icon: Icons.palette_outlined,
+        label: 'Farben & Milch-Shop',
+        builder: (BuildContext _) => const ThemeAndShopScreen(),
+      ),
+      (
+        icon: Icons.grass_outlined,
+        label: 'Kuh-Weide',
+        builder: (BuildContext _) => const CowPastureScreen(),
       ),
     ];
 

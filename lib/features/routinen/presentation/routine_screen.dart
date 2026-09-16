@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../cow_evolution/application/cow_pasture_providers.dart';
 import '../application/routine_providers.dart';
 
 class RoutineScreen extends ConsumerWidget {
@@ -45,12 +46,21 @@ class RoutineScreen extends ConsumerWidget {
                   item: item,
                   checked: completedIds.contains(item.id),
                   onToggle: () async {
-                    await ref.read(routineRepositoryProvider).toggleItemForToday(
+                    final fullyCompleted = await ref
+                        .read(routineRepositoryProvider)
+                        .toggleItemForToday(
                           routineId: routine.id,
                           itemId: item.id,
                           totalItemCount: items.length,
                         );
                     ref.invalidate(streakProvider(routine.id));
+                    // Kuh-Evolution: Milch-Bonus genau in dem Moment,
+                    // in dem die Routine komplett abgehakt wird.
+                    if (fullyCompleted) {
+                      ref
+                          .read(cowPastureProvider.notifier)
+                          .awardSuccess(milk: milkPerFullRoutine);
+                    }
                   },
                 ),
               ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/notifications/notification_service.dart';
-import 'core/theme/app_theme.dart';
+import 'features/theme_lab/application/theme_settings_providers.dart';
 import 'features/haushalt/presentation/household_screen.dart';
 import 'features/mehr/presentation/more_screen.dart';
 import 'features/routinen/application/routine_providers.dart';
@@ -16,15 +16,19 @@ void main() async {
   runApp(const ProviderScope(child: LifeOrganizerApp()));
 }
 
-class LifeOrganizerApp extends StatelessWidget {
+class LifeOrganizerApp extends ConsumerWidget {
   const LifeOrganizerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Dynamisches Theme statt fester AppTheme.dark-Konstante: reagiert
+    // live auf die freie Farb-Administration bzw. einen aktivierten
+    // Special-Style aus dem Milch-Shop (siehe theme_settings_providers.dart).
+    final theme = ref.watch(dynamicThemeProvider);
     return MaterialApp(
       title: 'Vergissmeinnicht',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: theme,
       home: const _RootScreen(),
     );
   }

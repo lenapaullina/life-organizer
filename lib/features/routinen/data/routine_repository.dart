@@ -71,7 +71,10 @@ class RoutineRepository {
 
   /// Hakt ein Item für heute ab oder wieder aus (Toggle).
   /// Legt bei Bedarf den heutigen Completion-Eintrag neu an.
-  Future<void> toggleItemForToday({
+  /// Gibt zurück, ob die Routine nach diesem Toggle vollständig
+  /// abgeschlossen ist – die UI nutzt das, um genau beim Erreichen
+  /// von "komplett" einen Milch-Bonus auszulösen (Kuh-Evolution).
+  Future<bool> toggleItemForToday({
     required String routineId,
     required String itemId,
     required int totalItemCount,
@@ -115,6 +118,8 @@ class RoutineRepository {
         ),
       );
     }
+
+    return fullyCompleted;
   }
 
   /// Anzahl aufeinanderfolgender Tage rückwärts ab heute (bzw. gestern,

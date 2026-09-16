@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../cow_evolution/application/cow_pasture_providers.dart';
 import '../../../shared/utils/status_calculator.dart';
 import '../../../shared/widgets/interval_progress_bar.dart';
 import '../../../shared/widgets/quick_action_button.dart';
@@ -192,6 +193,9 @@ class _TaskCard extends ConsumerWidget {
   }) async {
     final repo = ref.read(householdTaskRepositoryProvider);
     await repo.markCompleted(taskId);
+    // Kuh-Evolution: jede erledigte Aufgabe bringt direkt Milch und,
+    // falls noch Platz auf der Weide ist, eine neue Level-1-Kuh.
+    unawaited(ref.read(cowPastureProvider.notifier).awardSuccess(milk: milkPerHouseholdTask));
 
     if (context.mounted) {
       ScaffoldMessenger.of(context)

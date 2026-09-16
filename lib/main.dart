@@ -12,6 +12,33 @@ import 'features/start/presentation/start_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Diagnose-Hilfe: Flutter zeigt Build-Fehler standardmäßig nur im
+  // Debug-Modus als rote Box an – im Profile-/Release-Build (z. B. bei
+  // einer über USB laufenden, aber nicht im reinen Debug-Modus
+  // gestarteten Installation) kann ein Fehler sonst als leerer/
+  // schwarzer Bildschirm ohne jede Fehlermeldung enden. Diese
+  // Überschreibung sorgt dafür, dass JEDER Build-Fehler immer sichtbar
+  // (knallrot, mit Fehlertext) bleibt, egal in welchem Modus die App
+  // läuft – deutlich einfacher zu debuggen als ein stummer schwarzer
+  // Screen.
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      color: const Color(0xFFB00020),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Text(
+              details.exceptionAsString(),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
+
   await NotificationService.init();
   runApp(const ProviderScope(child: LifeOrganizerApp()));
 }

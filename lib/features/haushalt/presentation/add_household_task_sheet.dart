@@ -28,8 +28,14 @@ const _presets = [
 
 /// Öffnet den Anlege-Dialog als Bottom Sheet (schneller erreichbar
 /// als ein Vollbild-Dialog, Daumen-freundlich auf dem Handy).
-Future<void> showAddHouseholdTaskSheet(BuildContext context, WidgetRef ref) {
-  return showModalBottomSheet(
+///
+/// Gibt `true` zurück, wenn tatsächlich eine Aufgabe angelegt wurde
+/// (Preset getippt oder eigene Aufgabe gespeichert) – die aufrufende
+/// Stelle nutzt das für die kurze Bestätigung ("Aufgabe hinzugefügt").
+/// Wird das Sheet nur weggewischt/abgebrochen, kommt `null`/`false`
+/// zurück und es gibt keine Bestätigung.
+Future<bool?> showAddHouseholdTaskSheet(BuildContext context, WidgetRef ref) {
+  return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
@@ -56,7 +62,7 @@ class _AddHouseholdTaskSheetState extends ConsumerState<_AddHouseholdTaskSheet> 
           name: preset.name,
           intervalDays: preset.intervalDays,
         );
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   Future<void> _createCustom() async {
@@ -65,7 +71,7 @@ class _AddHouseholdTaskSheetState extends ConsumerState<_AddHouseholdTaskSheet> 
           name: _nameController.text.trim(),
           intervalDays: _customInterval,
         );
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override

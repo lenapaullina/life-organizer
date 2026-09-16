@@ -550,3 +550,34 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
+
+## Update: Haushalt – Auto-Close-Bestätigung + Löschen (Swipe + Menü + Undo)
+
+**Anlege-Sheet schloss sich zwar schon automatisch** (das war schon
+so eingebaut), aber ohne jede Rückmeldung, ob wirklich etwas passiert
+ist. Jetzt zeigt der Haushalt-Screen nach dem Schließen kurz eine
+Bestätigung ("Aufgabe hinzugefügt ✨") – dafür gibt `showAddHouseholdTaskSheet`
+jetzt zurück, ob wirklich eine Aufgabe angelegt wurde (`true`) oder
+das Sheet nur abgebrochen wurde (`null`).
+
+**Löschen war bisher komplett unmöglich** in der UI, obwohl die
+Repository-Methode (`deleteTask`) schon lange existierte. Jetzt:
+
+- **Swipe-to-Delete**: jede Aufgabenkarte lässt sich in beide
+  Richtungen wegwischen (`Dismissible`)
+- **Drei-Punkte-Menü** pro Karte (`PopupMenuButton`) bündelt
+  "Bearbeiten" und "Löschen" – für alle, die swipen nicht entdecken
+  oder lieber gezielt tippen; ersetzt den vorherigen einzelnen
+  Bearbeiten-Stift-Button (weniger Icons in der ohnehin vollen
+  Kartenkopfzeile)
+- **Löschen ist "optimistisch"**: die Aufgabe verschwindet sofort aus
+  der Liste, der eigentliche DB-Delete passiert erst 4 Sekunden
+  später – die Snackbar mit "Rückgängig" bricht das einfach ab, ohne
+  dass etwas wiederhergestellt werden müsste. Wichtig zu wissen:
+  echtes Löschen entfernt wegen Cascade-Delete auch die
+  Erledigungs-Historie der Aufgabe unwiderruflich, genau deshalb das
+  Zeitfenster zum Rückgängigmachen.
+
+`household_screen.dart` ist dafür von `ConsumerWidget` zu
+`ConsumerStatefulWidget` geworden (braucht lokalen State für die
+offenen Lösch-Timer).

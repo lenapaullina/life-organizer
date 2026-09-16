@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,17 +24,66 @@ String _cheerFor(String taskName) {
   return cheers[taskName.hashCode.abs() % cheers.length];
 }
 
-class HouseholdScreen extends ConsumerWidget {
+/// Wie lange nach dem Löschen einer Aufgabe noch "Rückgängig"
+/// funktioniert, bevor der DB-Eintrag (inkl. Historie, wegen
+/// Cascade-Delete) wirklich entfernt wird.
+const _undoDeleteWindow = Duration(seconds: 4);
+
+class HouseholdScreen extends ConsumerStatefulWidget {
   const HouseholdScreen({super.key});
 
-  String _statusLabel(TaskStatus status) => switch (status) {
-        TaskStatus.green => 'Im Plan',
-        TaskStatus.yellow => 'Bald fällig',
-        TaskStatus.red => 'Überfällig',
-      };
+  @override
+  ConsumerState<HouseholdScreen> createState() => _HouseholdScreenState();
+}
+
+class _HouseholdScreenState extends ConsumerState<HouseholdScreen> {
+  // Löschen ist bewusst "optimistisch": die Aufgabe verschwindet
+  // sofort aus der Liste, der eigentliche DB-Delete (der wegen
+  // Cascade-Delete auch die Erledigungs-Historie mitlöscht) passiert
+  // erst nach Ablauf von _undoDeleteWindow – "Rückgängig" bricht das
+  // einfach ab, ohne dass irgendwas wiederhergestellt werden müsste.
+  final Set<String> _pendingDeleteIds = {};
+  final Map<String, Timer> _pendingDeleteTimers = {};
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void dispose() {
+    for (final timer in _pendingDeleteTimers.values) {
+      timer.cancel();
+    }
+    super.dispose();
+  }
+
+  void _deleteWithUndo(String taskId, String taskName) {
+    setState(() => _pendingDeleteIds.add(taskId));
+
+    _pendingDeleteTimers[taskId]?.cancel();
+    _pendingDeleteTimers[taskId] = Timer(_undoDeleteWindow, () {
+      _pendingDeleteTimers.remove(taskId);
+      if (_pendingDeleteIds.contains(taskId)) {
+        ref.read(householdTaskRepositoryProvider).deleteTask(taskId);
+      }
+    });
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('"$taskName" gelöscht'),
+          duration: _undoDeleteWindow,
+          action: SnackBarAction(
+            label: 'Rückgängig',
+            onPressed: () {
+              _pendingDeleteTimers[taskId]?.cancel();
+              _pendingDeleteTimers.remove(taskId);
+              if (mounted) setState(() => _pendingDeleteIds.remove(taskId));
+            },
+          ),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tasksAsync = ref.watch(sortedHouseholdTasksProvider);
 
     return Scaffold(
@@ -56,7 +107,13 @@ class HouseholdScreen extends ConsumerWidget {
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Fehler: $err')),
-        data: (tasks) {
+        data: (allTasks) {
+          // Gerade zum Löschen vorgemerkte Aufgaben werden sofort
+          // ausgeblendet, unabhängig davon, wann der DB-Delete
+          // tatsächlich feuert (siehe _deleteWithUndo).
+          final tasks =
+              allTasks.where((t) => !_pendingDeleteIds.contains(t.task.id)).toList();
+
           if (tasks.isEmpty) {
             return const _EmptyState();
           }
@@ -64,23 +121,70 @@ class HouseholdScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             itemCount: tasks.length,
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) => _TaskCard(entry: tasks[index]),
+            itemBuilder: (context, index) {
+              final entry = tasks[index];
+              return Dismissible(
+                key: ValueKey(entry.task.id),
+                direction: DismissDirection.horizontal,
+                background: _DismissBackground(alignment: Alignment.centerLeft),
+                secondaryBackground: _DismissBackground(alignment: Alignment.centerRight),
+                onDismissed: (_) => _deleteWithUndo(entry.task.id, entry.task.name),
+                child: _TaskCard(
+                  entry: entry,
+                  onDelete: () => _deleteWithUndo(entry.task.id, entry.task.name),
+                ),
+              );
+            },
           );
         },
       ),
       // Öffnet die Preset-Schnellauswahl statt direkt einen Freitext-Dialog.
       floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddHouseholdTaskSheet(context, ref),
+        onPressed: () async {
+          final created = await showAddHouseholdTaskSheet(context, ref);
+          if (created == true && context.mounted) {
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Aufgabe hinzugefügt ✨'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+          }
+        },
         child: const Icon(Icons.add),
       ),
     );
   }
 }
 
+/// Roter Hintergrund mit Papierkorb-Icon, der beim Wischen sichtbar
+/// wird – je nach Wischrichtung links oder rechts ausgerichtet.
+class _DismissBackground extends StatelessWidget {
+  final Alignment alignment;
+  const _DismissBackground({required this.alignment});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.statusRedBg,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: AppColors.statusRed, width: 2),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      alignment: alignment,
+      child: const Icon(Icons.delete_outline, color: AppColors.statusRed),
+    );
+  }
+}
+
 class _TaskCard extends ConsumerWidget {
   final HouseholdTaskWithStatus entry;
+  final VoidCallback onDelete;
 
-  const _TaskCard({required this.entry});
+  const _TaskCard({required this.entry, required this.onDelete});
 
   Future<void> _markCompletedWithUndo(BuildContext context, WidgetRef ref, {
     required String taskId,
@@ -136,10 +240,42 @@ class _TaskCard extends ConsumerWidget {
                   },
                   visualDensity: VisualDensity.compact,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  onPressed: () => showEditHouseholdTaskDialog(context, ref, task),
-                  visualDensity: VisualDensity.compact,
+                // Bearbeiten + Löschen gebündelt in einem Menü – für
+                // alle, die die Swipe-zum-Löschen-Geste nicht entdecken
+                // oder lieber gezielt tippen, statt für jede Aktion
+                // einen eigenen Icon-Button in der ohnehin schon vollen
+                // Kopfzeile zu brauchen.
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      showEditHouseholdTaskDialog(context, ref, task);
+                    } else if (value == 'delete') {
+                      onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: AppSpacing.xs),
+                          Text('Bearbeiten'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 18, color: AppColors.statusRed),
+                          SizedBox(width: AppSpacing.xs),
+                          Text('Löschen'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 StatusPill(
                   status: status.status,

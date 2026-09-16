@@ -36,6 +36,26 @@ class ThemeSettingsNotifier extends StateNotifier<CustomColorSettings> {
       ? _persist(state.copyWith(clearCardColor: true))
       : _persist(state.copyWith(cardColorValue: color.value));
 
+  Future<void> setSecondaryColor(Color? color) => color == null
+      ? _persist(state.copyWith(clearSecondaryColor: true))
+      : _persist(state.copyWith(secondaryColorValue: color.value));
+
+  Future<void> setTextPrimaryColor(Color? color) => color == null
+      ? _persist(state.copyWith(clearTextPrimaryColor: true))
+      : _persist(state.copyWith(textPrimaryColorValue: color.value));
+
+  Future<void> setTextSecondaryColor(Color? color) => color == null
+      ? _persist(state.copyWith(clearTextSecondaryColor: true))
+      : _persist(state.copyWith(textSecondaryColorValue: color.value));
+
+  Future<void> setBorderColor(Color? color) => color == null
+      ? _persist(state.copyWith(clearBorderColor: true))
+      : _persist(state.copyWith(borderColorValue: color.value));
+
+  Future<void> setGradientEndColor(Color? color) => color == null
+      ? _persist(state.copyWith(clearGradientEnd: true))
+      : _persist(state.copyWith(gradientEndColorValue: color.value));
+
   Future<void> applyPreset(ColorPreset preset) => _persist(preset.settings);
 }
 
@@ -50,10 +70,18 @@ final themeSettingsProvider =
 /// laufen durch dieselbe Funktion, damit sich Karten/Buttons/Chips
 /// etc. konsistent verhalten, egal welcher Weg gerade aktiv ist.
 ///
-/// Bewusste Scoping-Grenze: Widgets mit fest verdrahteten Farben
-/// (z. B. StatusPill/die Grün-Gelb-Rot-Ampel) bleiben unangetastet –
-/// die "reizarme" Statusfarblogik soll unabhängig vom gewählten Look
-/// immer gleich erkennbar bleiben, siehe README.
+/// Bewusste Scoping-Grenzen (siehe README):
+/// - Widgets mit fest verdrahteten Farben (z. B. StatusPill/die
+///   Grün-Gelb-Rot-Ampel) bleiben unangetastet – die "reizarme"
+///   Statusfarblogik soll unabhängig vom gewählten Look immer gleich
+///   erkennbar bleiben.
+/// - Ein eingestellter Verlauf (`gradientEndColor`) wird in der
+///   Live-Vorschau sowie künftig in einzelnen Kopfbereichen sichtbar
+///   gemacht (siehe `accentGradient`), aber NICHT app-weit in jede
+///   AppBar/jeden Button eingebaut: Flutters `AppBarTheme`/
+///   `ElevatedButtonThemeData` unterstützen nur einfarbige Flächen,
+///   ein echter Verlauf bräuchte pro Bildschirm eine eigene
+///   Container-Deko statt der zentralen Theme-Konstanten.
 ThemeData buildDynamicTheme({
   required CustomColorSettings custom,
   SpecialStyleItem? activeStyle,
@@ -85,17 +113,19 @@ ThemeData buildDynamicTheme({
   } else {
     final mode = custom.backgroundMode;
     accent = custom.accentColor;
-    secondary = const Color(0xFF00E5FF);
+    secondary = custom.secondaryColor;
     background = mode.background;
     surface = custom.cardColor ?? mode.surface;
     surfaceMuted = mode.surfaceMuted;
     brightness = mode.isDark ? Brightness.dark : Brightness.light;
-    textPrimary = mode.textPrimary;
-    textSecondary = mode.textSecondary;
+    textPrimary = custom.textPrimaryColor;
+    textSecondary = custom.textSecondaryColor;
     cardRadius = 8;
     borderWidth = 2;
     fontFamily = '';
   }
+
+  final effectiveBorderColor = activeStyle != null ? accent : custom.borderColor;
 
   final base = ThemeData(
     useMaterial3: true,
@@ -146,7 +176,7 @@ ThemeData buildDynamicTheme({
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(cardRadius),
-        side: BorderSide(color: accent.withOpacity(0.6), width: borderWidth),
+        side: BorderSide(color: effectiveBorderColor.withOpacity(0.6), width: borderWidth),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -204,7 +234,7 @@ ThemeData buildDynamicTheme({
         ),
       ),
     ),
-    dividerTheme: DividerThemeData(color: accent.withOpacity(0.4), thickness: 1),
+    dividerTheme: DividerThemeData(color: effectiveBorderColor.withOpacity(0.4), thickness: 1),
     iconTheme: IconThemeData(color: textPrimary),
     listTileTheme: ListTileThemeData(iconColor: secondary, textColor: textPrimary),
     snackBarTheme: SnackBarThemeData(
@@ -217,6 +247,14 @@ ThemeData buildDynamicTheme({
       actionTextColor: secondary,
     ),
   );
+}
+
+/// Für Vorschau/Kopfbereiche, die den optionalen Verlauf wirklich als
+/// Gradient darstellen wollen (statt der Solid-Farben aus ThemeData).
+LinearGradient? accentGradient(CustomColorSettings custom) {
+  final end = custom.gradientEndColor;
+  if (end == null) return null;
+  return LinearGradient(colors: [custom.accentColor, end]);
 }
 
 /// Das tatsächlich verwendete App-Theme: freie Farbwahl, oder falls

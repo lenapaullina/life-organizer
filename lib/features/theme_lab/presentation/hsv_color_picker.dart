@@ -20,11 +20,14 @@ class HsvColorPicker extends StatefulWidget {
 
 class _HsvColorPickerState extends State<HsvColorPicker> {
   late HSVColor _hsv;
+  late TextEditingController _hexController;
+  bool _hexFieldFocused = false;
 
   @override
   void initState() {
     super.initState();
     _hsv = HSVColor.fromColor(widget.initialColor);
+    _hexController = TextEditingController(text: _hexOf(_hsv));
   }
 
   @override
@@ -32,18 +35,46 @@ class _HsvColorPickerState extends State<HsvColorPicker> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialColor != widget.initialColor) {
       _hsv = HSVColor.fromColor(widget.initialColor);
+      if (!_hexFieldFocused) {
+        _hexController.text = _hexOf(_hsv);
+      }
     }
   }
 
-  void _update(HSVColor next) {
+  @override
+  void dispose() {
+    _hexController.dispose();
+    super.dispose();
+  }
+
+  String _hexOf(HSVColor hsv) {
+    final color = hsv.toColor();
+    return color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
+  }
+
+  void _update(HSVColor next, {bool syncHexField = true}) {
     setState(() => _hsv = next);
+    if (syncHexField) {
+      _hexController.text = _hexOf(next);
+    }
     widget.onChanged(next.toColor());
+  }
+
+  void _onHexSubmitted(String raw) {
+    final cleaned = raw.trim().replaceFirst('#', '');
+    if (cleaned.length != 6 || int.tryParse(cleaned, radix: 16) == null) {
+      // Ungültige Eingabe -> einfach auf den aktuellen Wert zurücksetzen,
+      // statt die App abstürzen zu lassen.
+      _hexController.text = _hexOf(_hsv);
+      return;
+    }
+    final value = int.parse('FF$cleaned', radix: 16);
+    _update(HSVColor.fromColor(Color(value)), syncHexField: false);
   }
 
   @override
   Widget build(BuildContext context) {
     final color = _hsv.toColor();
-    final hex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,7 +91,22 @@ class _HsvColorPickerState extends State<HsvColorPicker> {
               ),
             ),
             const SizedBox(width: 12),
-            Text(hex, style: const TextStyle(fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+            const Text('#', style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+            SizedBox(
+              width: 110,
+              child: Focus(
+                onFocusChange: (hasFocus) => _hexFieldFocused = hasFocus,
+                child: TextField(
+                  controller: _hexController,
+                  maxLength: 6,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontFamily: 'monospace'),
+                  decoration: const InputDecoration(counterText: '', isDense: true),
+                  textCapitalization: TextCapitalization.characters,
+                  onSubmitted: _onHexSubmitted,
+                  onEditingComplete: () => _onHexSubmitted(_hexController.text),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -117,7 +163,7 @@ class _ChannelSlider extends StatelessWidget {
         SizedBox(width: 76, child: Text(label, style: const TextStyle(fontSize: 13))),
         Expanded(
           child: Slider(
-            value: value.clamp(min, max),
+            value: value.clamp(min, max).toDouble(),
             min: min,
             max: max,
             activeColor: activeColor,

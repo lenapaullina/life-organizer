@@ -108,22 +108,114 @@ class _ColorAdminTab extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
+        _ColorField(
+          label: 'Karten-/Container-Farbe',
+          color: settings.cardColor,
+          fallback: settings.backgroundMode.surface,
+          onChanged: notifier.setCardColor,
+          onReset: () => notifier.setCardColor(null),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ColorField(
+          label: 'Zweiter Akzent (Links, Icons, Ränder-Highlights)',
+          color: settings.secondaryColorValue == null ? null : settings.secondaryColor,
+          fallback: settings.secondaryColor,
+          onChanged: notifier.setSecondaryColor,
+          onReset: () => notifier.setSecondaryColor(null),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ColorField(
+          label: 'Textfarbe (Überschriften)',
+          color: settings.textPrimaryColorValue == null ? null : settings.textPrimaryColor,
+          fallback: settings.textPrimaryColor,
+          onChanged: notifier.setTextPrimaryColor,
+          onReset: () => notifier.setTextPrimaryColor(null),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ColorField(
+          label: 'Textfarbe (Nebentext)',
+          color: settings.textSecondaryColorValue == null ? null : settings.textSecondaryColor,
+          fallback: settings.textSecondaryColor,
+          onChanged: notifier.setTextSecondaryColor,
+          onReset: () => notifier.setTextSecondaryColor(null),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ColorField(
+          label: 'Rahmenfarbe (Karten-/Trennlinien-Rand)',
+          color: settings.borderColorValue == null ? null : settings.borderColor,
+          fallback: settings.borderColor,
+          onChanged: notifier.setBorderColor,
+          onReset: () => notifier.setBorderColor(null),
+        ),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Karten-/Container-Farbe', style: Theme.of(context).textTheme.titleMedium),
-            if (settings.cardColor != null)
+            Text('Verlauf (optional)', style: Theme.of(context).textTheme.titleMedium),
+            if (settings.hasGradient)
               TextButton(
-                onPressed: () => notifier.setCardColor(null),
-                child: const Text('Automatisch'),
+                onPressed: () => notifier.setGradientEndColor(null),
+                child: const Text('Kein Verlauf'),
               ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
-        HsvColorPicker(
-          initialColor: settings.cardColor ?? settings.backgroundMode.surface,
-          onChanged: notifier.setCardColor,
+        const SizedBox(height: AppSpacing.xs),
+        const Text(
+          'Zweite Farbe für einen Verlauf ab der Akzentfarbe – sichtbar in der Vorschau '
+          'oben. Aus technischen Gründen wirkt der Verlauf aktuell nur in der Vorschau, '
+          'nicht app-weit auf jeder Kopfzeile/jedem Button (die sind einfarbig aufgebaut).',
+          style: TextStyle(fontSize: 12),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        if (!settings.hasGradient)
+          OutlinedButton.icon(
+            onPressed: () => notifier.setGradientEndColor(settings.secondaryColor),
+            icon: const Icon(Icons.gradient),
+            label: const Text('Verlauf hinzufügen'),
+          )
+        else
+          HsvColorPicker(
+            initialColor: settings.gradientEndColor!,
+            onChanged: notifier.setGradientEndColor,
+          ),
+      ],
+    );
+  }
+}
+
+/// Eine Farbzeile mit Label, HSV-Picker und optionalem
+/// "Automatisch"-Reset-Button für alle nullable Farbfelder von
+/// [CustomColorSettings].
+class _ColorField extends StatelessWidget {
+  final String label;
+  final Color? color;
+  final Color fallback;
+  final ValueChanged<Color?> onChanged;
+  final VoidCallback onReset;
+
+  const _ColorField({
+    required this.label,
+    required this.color,
+    required this.fallback,
+    required this.onChanged,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(label, style: Theme.of(context).textTheme.titleMedium)),
+            if (color != null)
+              TextButton(onPressed: onReset, child: const Text('Automatisch')),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        HsvColorPicker(initialColor: color ?? fallback, onChanged: onChanged),
       ],
     );
   }
@@ -136,6 +228,8 @@ class _PreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = buildDynamicTheme(custom: settings);
+    final gradient = accentGradient(settings);
+
     return Theme(
       data: theme,
       child: Container(
@@ -147,6 +241,19 @@ class _PreviewCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: gradient == null ? settings.accentColor : null,
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+              ),
+              child: Text(
+                'So sieht deine Kopfzeile aus',
+                style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),

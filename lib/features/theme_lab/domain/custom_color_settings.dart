@@ -44,24 +44,55 @@ extension BackgroundModeX on BackgroundMode {
 /// Frei einstellbares Grund-Design – für JEDE Nutzerin verfügbar,
 /// unabhängig vom Milch-Shop (siehe special_style.dart). Wird als
 /// eigenständiges JSON-Objekt persistiert (siehe json_object_store.dart).
+///
+/// Jedes Farbfeld außer der Akzentfarbe ist bewusst NULLABLE: `null`
+/// heißt "automatisch aus backgroundMode/accentColor abgeleitet", statt
+/// dass man erst mal alles einzeln einstellen muss, um ein stimmiges
+/// Ergebnis zu bekommen. Wer will, kann trotzdem jede einzelne Farbe
+/// überschreiben – nur die Status-Ampel (Grün/Gelb/Rot, siehe
+/// status_calculator.dart/StatusPill) bleibt bewusst außen vor, damit
+/// sie immer gleich erkennbar bleibt (siehe README).
 class CustomColorSettings {
   final int accentColorValue;
   final BackgroundMode backgroundMode;
-  final int? cardColorValue; // null = automatisch aus backgroundMode abgeleitet
+  final int? cardColorValue; // Karten-/Container-Fläche
+  final int? secondaryColorValue; // zweiter Akzent (Links, Ränder, Icons)
+  final int? textPrimaryColorValue;
+  final int? textSecondaryColorValue;
+  final int? borderColorValue;
+  // Optionaler Verlauf: wenn gesetzt, wird statt der reinen
+  // Akzentfarbe ein Verlauf von accentColor -> gradientEndColor in
+  // der Vorschau sowie in AppBar/Kopfbereichen verwendet.
+  final int? gradientEndColorValue;
 
   const CustomColorSettings({
     required this.accentColorValue,
     required this.backgroundMode,
     this.cardColorValue,
+    this.secondaryColorValue,
+    this.textPrimaryColorValue,
+    this.textSecondaryColorValue,
+    this.borderColorValue,
+    this.gradientEndColorValue,
   });
 
   Color get accentColor => Color(accentColorValue);
   Color? get cardColor => cardColorValue == null ? null : Color(cardColorValue!);
+  Color get secondaryColor =>
+      secondaryColorValue == null ? const Color(0xFF00E5FF) : Color(secondaryColorValue!);
+  Color get textPrimaryColor =>
+      textPrimaryColorValue == null ? backgroundMode.textPrimary : Color(textPrimaryColorValue!);
+  Color get textSecondaryColor => textSecondaryColorValue == null
+      ? backgroundMode.textSecondary
+      : Color(textSecondaryColorValue!);
+  Color get borderColor => borderColorValue == null ? accentColor : Color(borderColorValue!);
+  Color? get gradientEndColor =>
+      gradientEndColorValue == null ? null : Color(gradientEndColorValue!);
+  bool get hasGradient => gradientEndColorValue != null;
 
   factory CustomColorSettings.fallback() => const CustomColorSettings(
         accentColorValue: 0xFFFF1493, // Neon-Pink, wie bisheriges Y2K-Theme
         backgroundMode: BackgroundMode.dark,
-        cardColorValue: null,
       );
 
   CustomColorSettings copyWith({
@@ -69,11 +100,31 @@ class CustomColorSettings {
     BackgroundMode? backgroundMode,
     int? cardColorValue,
     bool clearCardColor = false,
+    int? secondaryColorValue,
+    bool clearSecondaryColor = false,
+    int? textPrimaryColorValue,
+    bool clearTextPrimaryColor = false,
+    int? textSecondaryColorValue,
+    bool clearTextSecondaryColor = false,
+    int? borderColorValue,
+    bool clearBorderColor = false,
+    int? gradientEndColorValue,
+    bool clearGradientEnd = false,
   }) {
     return CustomColorSettings(
       accentColorValue: accentColorValue ?? this.accentColorValue,
       backgroundMode: backgroundMode ?? this.backgroundMode,
       cardColorValue: clearCardColor ? null : (cardColorValue ?? this.cardColorValue),
+      secondaryColorValue:
+          clearSecondaryColor ? null : (secondaryColorValue ?? this.secondaryColorValue),
+      textPrimaryColorValue:
+          clearTextPrimaryColor ? null : (textPrimaryColorValue ?? this.textPrimaryColorValue),
+      textSecondaryColorValue: clearTextSecondaryColor
+          ? null
+          : (textSecondaryColorValue ?? this.textSecondaryColorValue),
+      borderColorValue: clearBorderColor ? null : (borderColorValue ?? this.borderColorValue),
+      gradientEndColorValue:
+          clearGradientEnd ? null : (gradientEndColorValue ?? this.gradientEndColorValue),
     );
   }
 
@@ -81,6 +132,11 @@ class CustomColorSettings {
         'accentColorValue': accentColorValue,
         'backgroundMode': backgroundMode.name,
         'cardColorValue': cardColorValue,
+        'secondaryColorValue': secondaryColorValue,
+        'textPrimaryColorValue': textPrimaryColorValue,
+        'textSecondaryColorValue': textSecondaryColorValue,
+        'borderColorValue': borderColorValue,
+        'gradientEndColorValue': gradientEndColorValue,
       };
 
   factory CustomColorSettings.fromJson(Map<String, dynamic> json) {
@@ -91,6 +147,11 @@ class CustomColorSettings {
         orElse: () => BackgroundMode.dark,
       ),
       cardColorValue: json['cardColorValue'] as int?,
+      secondaryColorValue: json['secondaryColorValue'] as int?,
+      textPrimaryColorValue: json['textPrimaryColorValue'] as int?,
+      textSecondaryColorValue: json['textSecondaryColorValue'] as int?,
+      borderColorValue: json['borderColorValue'] as int?,
+      gradientEndColorValue: json['gradientEndColorValue'] as int?,
     );
   }
 }
@@ -125,6 +186,14 @@ const colorPresets = [
       accentColorValue: 0xFFFFD600,
       backgroundMode: BackgroundMode.oled,
       cardColorValue: 0xFF000000,
+    ),
+  ),
+  ColorPreset(
+    'Sonnenuntergang (Verlauf)',
+    CustomColorSettings(
+      accentColorValue: 0xFFFF5F6D,
+      backgroundMode: BackgroundMode.dark,
+      gradientEndColorValue: 0xFFFFC371,
     ),
   ),
 ];

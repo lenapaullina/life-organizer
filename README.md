@@ -667,3 +667,32 @@ Runden):**
 flutter pub get
 flutter run
 ```
+
+## Update: Bugfix Farb-Administration (leerer Screen) + deutlich mehr einstellbare Farben + optionaler Verlauf
+
+**Bugfix:** Der "Farben"-Tab blieb leer/unbedienbar, weil `_ChannelSlider`
+in `hsv_color_picker.dart` den Rückgabewert von `double.clamp(...)`
+(Typ `num` in Dart, nicht `double` – ein bekannter Stolperstein) direkt
+als `Slider.value` übergeben hat. Das ist ein echter Typfehler, der den
+kompletten Build zum Scheitern gebracht hat. Fix: `.toDouble()` ergänzt.
+
+**Deutlich mehr einstellbare Farben:** Auf Wunsch lässt sich jetzt (fast)
+jede sichtbare Farbe einzeln überschreiben, nicht nur Akzent/Hintergrund/
+Karten: zweiter Akzent (Links/Icons), Text-Hauptfarbe, Text-Nebenfarbe,
+Rahmenfarbe – jeweils mit "Automatisch"-Zurücksetzen-Button, falls man
+lieber wieder die aus dem Hintergrundmodus abgeleitete Farbe haben will.
+Zusätzlich gibt's jetzt ein direktes Hex-Eingabefeld neben jedem
+Farbwähler (`#RRGGBB` eintippen + Enter), nicht nur die drei Schieberegler.
+
+**Optionaler Verlauf:** Über "Verlauf hinzufügen" lässt sich eine zweite
+Farbe für einen Verlauf ab der Akzentfarbe festlegen – sichtbar in der
+Live-Vorschau (Kopfzeile). Wichtig zu wissen: das wirkt aktuell NUR in
+der Vorschau, nicht automatisch app-weit auf jeder echten Kopfzeile/jedem
+Button. Grund: Flutters zentrale Theme-Bausteine (`AppBarTheme`,
+`ElevatedButtonThemeData`, `CardTheme`) unterstützen nur einfarbige
+Flächen – ein echter App-weiter Verlauf bräuchte eine eigene
+Container-Deko in jedem einzelnen Bildschirm statt der zentralen
+Theme-Konstanten, was ein größerer, separater Umbau wäre. Sag Bescheid,
+falls dir das wichtig genug ist, dass ich das als nächstes angehe.
+
+Die Status-Ampel (Grün/Gelb/Rot) bleibt weiterhin bewusst unverändert.

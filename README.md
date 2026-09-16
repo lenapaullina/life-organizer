@@ -764,3 +764,26 @@ erledigt", fest auf 5, `gamification_providers.dart` ->
   separate Klassen angelegt, sondern bleiben in `CowPastureNotifier`
   bzw. den bestehenden Task-Repositories – funktional identisch,
   nur anders benannt/organisiert als in der Anfrage vorgeschlagen.
+
+**Bugfix: leerer Einstellungen-Screen / schwarzer Milch-Shop-Screen.**
+Ursache war ein Layout-Absturz, kein unsichtbarer Bug: Das globale
+Button-Theme (`theme_lab/application/theme_settings_providers.dart`)
+setzt für ALLE `ElevatedButton`/`OutlinedButton` bewusst
+`minimumSize: Size.fromHeight(56)` – das erzwingt eine *unendliche*
+Mindestbreite, damit Buttons z. B. in Formularen/Sheets automatisch
+die volle Breite ausfüllen. Das funktioniert überall dort, wo ein
+Button in einer `Column` steht, führt aber zu einem Flutter-Layout-
+Crash ("BoxConstraints forces an infinite width"), sobald ein solcher
+Button direkt (ohne `Expanded`/`Flexible`) in einer `Row` steht – eine
+`Row` gibt nicht-flexiblen Kindern nämlich eine unbegrenzte Breite vor.
+Genau das war in zwei neuen Widgets aus der letzten Runde der Fall:
+dem Kauf-Button in `_UpgradeCard` (`theme_and_shop_screen.dart`) und
+dem "Knopf"-Button in der `_PreviewCard`-Vorschau
+(`color_admin_section.dart`). Der Absturz beim allerersten Frame riss
+jeweils den ganzen Screen mit – sichtbar als leerer Einstellungen-
+Screen bzw. schwarzer Milch-Shop-Screen, ohne dass eine Fehlermeldung
+zu sehen war (Standard-Verhalten von Flutter bei Layout-Fehlern
+außerhalb des reinen Debug-Overlays). Fix: beide Buttons in
+`Flexible(...)` eingepackt, damit die umgebende `Row` ihnen eine
+begrenzte statt unendliche Breite vorgibt. Ein Scan über den Rest der
+App fand keine weiteren Stellen mit demselben Muster.

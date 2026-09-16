@@ -149,9 +149,18 @@ class _UpgradeCard extends StatelessWidget {
             if (isUnlocked)
               const Icon(Icons.check_circle, color: Colors.green)
             else
-              ElevatedButton(
-                onPressed: canAfford ? onBuy : null,
-                child: Text('$price 🥛'),
+              // Flexible statt direkt in der Row: ElevatedButton fordert
+              // per App-Theme (minimumSize: Size.fromHeight(56)) eine
+              // unendliche Mindestbreite an, um an anderer Stelle (in
+              // Column-Kontexten) volle Breite auszufüllen. In einer Row
+              // OHNE Expanded/Flexible gäbe das ein "BoxConstraints forces
+              // an infinite width"-Layout-Crash (führte genau hier zum
+              // schwarzen Bildschirm im Milch-Shop).
+              Flexible(
+                child: ElevatedButton(
+                  onPressed: canAfford ? onBuy : null,
+                  child: Text('$price 🥛'),
+                ),
               ),
           ],
         ),

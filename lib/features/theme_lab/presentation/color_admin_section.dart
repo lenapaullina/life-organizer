@@ -241,7 +241,14 @@ class _PreviewCard extends StatelessWidget {
                     Expanded(
                       child: Text('So sehen Karten aus', style: theme.textTheme.titleMedium),
                     ),
-                    ElevatedButton(onPressed: () {}, child: const Text('Knopf')),
+                    // Flexible statt direkt in der Row: siehe Kommentar in
+                    // theme_and_shop_screen.dart bei _UpgradeCard – ohne das
+                    // gäbe die unendliche Mindestbreite aus dem Button-Theme
+                    // hier einen Layout-Crash (Ursache für den leeren
+                    // Einstellungen-Screen).
+                    Flexible(
+                      child: ElevatedButton(onPressed: () {}, child: const Text('Knopf')),
+                    ),
                   ],
                 ),
               ),

@@ -21,10 +21,29 @@ const milkPerFullRoutine = 12;
 const _passiveMilkPerLevelPerHour = 2;
 const _maxOfflineHours = 8;
 
+/// Milch pro Level und Stunde – auch als eigenständige Konstante
+/// exportiert, damit UI-Screens die aktuelle Produktionsrate anzeigen
+/// können, ohne die interne Berechnung zu duplizieren.
+double passiveMilkPerMinute(List<Cow> cows) {
+  final levelSum = cows.fold<int>(0, (sum, c) => sum + c.level);
+  return levelSum * _passiveMilkPerLevelPerHour / 60.0;
+}
+
+/// IDs der im Milch-Shop kaufbaren Upgrades (keine Special-Styles,
+/// sondern Funktions-Freischaltungen).
+const autoMergeUpgradeId = 'auto_merge';
+const autoMergeUpgradePrice = 300;
+
+/// Ergebnis von [CowPastureNotifier.awardSuccess] – die UI zeigt bei
+/// [pastureFull] einen Hinweis ("Weide voll! Merge deine Kühe!"),
+/// statt die neue Kuh stillschweigend verschwinden zu lassen.
+enum CowSpawnResult { spawned, pastureFull }
+
 class CowPastureState {
   final List<Cow> cows;
   final int milk;
   final List<String> unlockedStyleIds;
+  final List<String> unlockedUpgradeIds;
   final String? activeStyleId;
   final DateTime lastCollectedAt;
 
@@ -32,14 +51,18 @@ class CowPastureState {
     required this.cows,
     required this.milk,
     required this.unlockedStyleIds,
+    required this.unlockedUpgradeIds,
     required this.activeStyleId,
     required this.lastCollectedAt,
   });
+
+  bool get hasAutoMerge => unlockedUpgradeIds.contains(autoMergeUpgradeId);
 
   factory CowPastureState.initial() => CowPastureState(
         cows: const [],
         milk: 0,
         unlockedStyleIds: const [],
+        unlockedUpgradeIds: const [],
         activeStyleId: null,
         lastCollectedAt: DateTime.now(),
       );
@@ -48,6 +71,7 @@ class CowPastureState {
     List<Cow>? cows,
     int? milk,
     List<String>? unlockedStyleIds,
+    List<String>? unlockedUpgradeIds,
     String? activeStyleId,
     bool clearActiveStyle = false,
     DateTime? lastCollectedAt,
@@ -56,6 +80,7 @@ class CowPastureState {
       cows: cows ?? this.cows,
       milk: milk ?? this.milk,
       unlockedStyleIds: unlockedStyleIds ?? this.unlockedStyleIds,
+      unlockedUpgradeIds: unlockedUpgradeIds ?? this.unlockedUpgradeIds,
       activeStyleId: clearActiveStyle ? null : (activeStyleId ?? this.activeStyleId),
       lastCollectedAt: lastCollectedAt ?? this.lastCollectedAt,
     );
@@ -65,6 +90,7 @@ class CowPastureState {
         'cows': cows.map((c) => c.toJson()).toList(),
         'milk': milk,
         'unlockedStyleIds': unlockedStyleIds,
+        'unlockedUpgradeIds': unlockedUpgradeIds,
         'activeStyleId': activeStyleId,
         'lastCollectedAt': lastCollectedAt.toIso8601String(),
       };
@@ -78,6 +104,7 @@ class CowPastureState {
             .toList(),
         milk: json['milk'] as int? ?? 0,
         unlockedStyleIds: (json['unlockedStyleIds'] as List? ?? []).cast<String>(),
+        unlockedUpgradeIds: (json['unlockedUpgradeIds'] as List? ?? []).cast<String>(),
         activeStyleId: json['activeStyleId'] as String?,
         lastCollectedAt:
             DateTime.tryParse(json['lastCollectedAt'] as String? ?? '') ?? DateTime.now(),
@@ -145,13 +172,16 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
   /// Erfolg (Haushaltsaufgabe erledigt / Routine komplett) -> Milch
   /// direkt + neue Level-1-Kuh, falls noch Platz auf der Weide ist.
   /// Ist die Weide voll, gibt's trotzdem die Milch, nur keine neue Kuh
-  /// (Anreiz zum Mergen, nicht Bestrafung fürs Erledigen).
-  Future<void> awardSuccess({required int milk}) async {
+  /// (Anreiz zum Mergen, nicht Bestrafung fürs Erledigen) – die UI
+  /// bekommt das über den Rückgabewert mit, um z. B. "Weide voll!
+  /// Merge deine Kühe!" anzuzeigen.
+  Future<CowSpawnResult> awardSuccess({required int milk}) async {
     final current = state.valueOrNull;
-    if (current == null) return;
+    if (current == null) return CowSpawnResult.pastureFull;
 
     var cows = current.cows;
     final freePos = _firstFreePosition(cows);
+    final result = freePos == null ? CowSpawnResult.pastureFull : CowSpawnResult.spawned;
     if (freePos != null) {
       cows = [
         ...cows,
@@ -160,6 +190,7 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
     }
 
     await _persist(current.copyWith(cows: cows, milk: current.milk + milk));
+    return result;
   }
 
   static int _idCounter = 0;
@@ -213,6 +244,68 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
       activeStyleId: styleId,
       clearActiveStyle: styleId == null,
     ));
+  }
+
+  /// Kauft ein Funktions-Upgrade (aktuell nur "Auto-Merge", siehe
+  /// [autoMergeUpgradeId]) – technisch identisch zu [purchaseStyle],
+  /// aber in einer eigenen Liste, damit Styles und Upgrades im Shop
+  /// getrennt dargestellt werden können.
+  Future<bool> purchaseUpgrade(String upgradeId, int price) async {
+    final current = state.valueOrNull;
+    if (current == null) return false;
+    if (current.unlockedUpgradeIds.contains(upgradeId)) return true;
+    if (current.milk < price) return false;
+
+    await _persist(current.copyWith(
+      milk: current.milk - price,
+      unlockedUpgradeIds: [...current.unlockedUpgradeIds, upgradeId],
+    ));
+    return true;
+  }
+
+  /// "Sortieren & Mergen": merged automatisch so lange gleich-levelige
+  /// Kuh-Paare, bis keine mehr übrig sind. Läuft in einem Rutsch
+  /// (eine einzige Persistierung am Ende), damit die Weide nicht
+  /// zwischendurch sichtbar flackert. Gibt zurück, wie viele Merges
+  /// stattgefunden haben (für eine kurze Erfolgsmeldung in der UI).
+  Future<int> autoMergeAll() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasAutoMerge) return 0;
+
+    var cows = List<Cow>.from(current.cows);
+    var milk = current.milk;
+    var mergeCount = 0;
+
+    var mergedSomething = true;
+    while (mergedSomething) {
+      mergedSomething = false;
+      // Nach Level gruppieren und pro Level Paare mergen.
+      final byLevel = <int, List<Cow>>{};
+      for (final cow in cows) {
+        byLevel.putIfAbsent(cow.level, () => []).add(cow);
+      }
+      for (final levelCows in byLevel.values) {
+        if (levelCows.length < 2) continue;
+        final a = levelCows[0];
+        final b = levelCows[1];
+        final newLevel = a.level + 1;
+        final merged = Cow(id: _newId(), level: newLevel, position: a.position);
+        cows = [
+          for (final c in cows)
+            if (c.id != a.id && c.id != b.id) c,
+          merged,
+        ];
+        milk += newLevel * 10;
+        mergeCount += 1;
+        mergedSomething = true;
+        break; // Neu gruppieren, da sich die Liste geändert hat.
+      }
+    }
+
+    if (mergeCount > 0) {
+      await _persist(current.copyWith(cows: cows, milk: milk));
+    }
+    return mergeCount;
   }
 }
 

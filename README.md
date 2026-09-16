@@ -696,3 +696,71 @@ Theme-Konstanten, was ein größerer, separater Umbau wäre. Sag Bescheid,
 falls dir das wichtig genug ist, dass ich das als nächstes angehe.
 
 Die Status-Ampel (Grün/Gelb/Rot) bleibt weiterhin bewusst unverändert.
+
+## Update: Einstellungen/Shop getrennt, Juiciness (Haptik/Flug-Animation/Sound-Hook), Drag&Drop-Merge, Auto-Merge-Upgrade, Swipe-Quick-Actions, Prioritäts-Tags, Tagesziel & passive Milch-Rate
+
+Große Erweiterungsrunde in mehreren Teilen:
+
+**Einstellungen vs. Shop entkoppelt:** Neues Zahnrad-Symbol in der
+AppBar von "Mehr" öffnet `SettingsScreen`
+(`lib/features/settings/presentation/settings_screen.dart`) mit der
+freien Farb-Administration (umgezogen aus dem alten Farben-Tab in
+`ColorAdminSection`, `theme_lab/presentation/color_admin_section.dart`)
+plus einem Sound-Schalter. Der Milch-Shop
+(`theme_lab/presentation/theme_and_shop_screen.dart`) enthält jetzt
+ausschließlich Kaufbares: die vier Special-Styles und ein neues
+Auto-Merge-Upgrade (300 Milch).
+
+**Kuh-Spawn-Rückmeldung:** `CowPastureNotifier.awardSuccess` gibt jetzt
+zurück, ob eine neue Kuh gespawnt wurde oder die Weide voll war
+(`CowSpawnResult`), und Haushalt/Routinen zeigen bei voller Weide
+"Weide voll! Merge deine Kühe!" statt einer stillen Nicht-Aktion.
+
+**Juiciness:**
+- `HapticFeedback.lightImpact()` beim Erledigen, `.mediumImpact()`
+  beim Mergen (`settings/application/app_settings_providers.dart`).
+- Sound-Hook (`maybePlaySound`) vorbereitet und an den Sound-Schalter
+  gekoppelt – bewusst noch ohne echtes Audio-Package/-Asset, da aus
+  dieser Sandbox weder pub.dev erreichbar ist, um eine Bibliothek zu
+  prüfen, noch Sound-Dateien vorliegen. Der Haken ist an genau einer
+  Stelle im Code bereit für ein echtes Package.
+- Flug-Animation (`shared/widgets/flying_reward_overlay.dart`): ein
+  🥛-Emoji fliegt vom Auslöse-Punkt (Button/Swipe) nach oben rechts
+  und verblasst. Bewusste Vereinfachung: es gibt keine eigene
+  Kuh-Weide-Kachel in der Bottom-Navigation (nur Start/Haushalt/
+  Routinen/Mehr), daher kein exaktes Nav-Icon als Ziel – das würde
+  einen Navigations-Umbau bedeuten, den ich nicht eigenmächtig gemacht
+  habe.
+
+**Cow Evolution – Drag&Drop + Auto-Merge:** Auf der Weide lässt sich
+jetzt zusätzlich zum Antippen auch eine Kuh auf eine andere ziehen;
+während des Ziehens leuchten alle Kühe mit gleichem Level auf, der
+Rest wird abgedunkelt (`Draggable`/`DragTarget` in
+`cow_evolution/presentation/cow_pasture_screen.dart`). Mit dem
+Auto-Merge-Upgrade aus dem Shop gibt es zusätzlich einen
+"Sortieren & Mergen"-Knopf in der AppBar der Weide, der automatisch
+alle möglichen Paare zusammenführt.
+
+**Swipe-Quick-Actions in Haushalt:** `Dismissible` unterscheidet jetzt
+Richtung: nach rechts wischen erledigt die Aufgabe (grüner Haken,
+Aufgabe bleibt in der Liste), nach links wischen löscht sie (roter
+Papierkorb, wie bisher mit Undo-Snackbar).
+
+**Prioritäts-Tags:** Aufgaben lassen sich über das Menü mit 🔥
+"Dringend" oder ☕ "Entspannt" markieren (2000er-Forum-Badge-Look),
+gespeichert in einer eigenen JSON-Datei (`haushalt/domain/task_tag.dart`,
+`application/task_tag_providers.dart`) statt einer neuen Drift-Spalte.
+
+**Dashboard:** Tagesziel-Fortschrittsbalken ("3/5 Tasks heute
+erledigt", fest auf 5, `gamification_providers.dart` ->
+`dailyGoalProgressProvider`) und Anzeige der passiven Milch-Rate
+("+X Milch/Min") auf dem Start-Screen und der Kuh-Weide.
+
+**Bewusst NICHT umgesetzt / vereinfacht (Transparenz wie immer):**
+- Kein echtes Audio-Package eingebunden (s. o.).
+- Keine 5. Nav-Bar-Kachel für die Weide – Flug-Animation zielt auf
+  eine feste Bildschirmecke statt ein echtes Icon.
+- `MilkEconomyNotifier`/`TaskNotifier` wurden NICHT als komplett
+  separate Klassen angelegt, sondern bleiben in `CowPastureNotifier`
+  bzw. den bestehenden Task-Repositories – funktional identisch,
+  nur anders benannt/organisiert als in der Anfrage vorgeschlagen.

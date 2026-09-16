@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/flying_reward_overlay.dart';
 import '../../cow_evolution/application/cow_pasture_providers.dart';
+import '../../settings/application/app_settings_providers.dart';
 import '../application/routine_providers.dart';
 
 class RoutineScreen extends ConsumerWidget {
@@ -42,26 +44,55 @@ class RoutineScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: AppSpacing.md),
               ...items.map(
-                (item) => _RoutineItemTile(
-                  item: item,
-                  checked: completedIds.contains(item.id),
-                  onToggle: () async {
-                    final fullyCompleted = await ref
-                        .read(routineRepositoryProvider)
-                        .toggleItemForToday(
-                          routineId: routine.id,
-                          itemId: item.id,
-                          totalItemCount: items.length,
-                        );
-                    ref.invalidate(streakProvider(routine.id));
-                    // Kuh-Evolution: Milch-Bonus genau in dem Moment,
-                    // in dem die Routine komplett abgehakt wird.
-                    if (fullyCompleted) {
-                      ref
-                          .read(cowPastureProvider.notifier)
-                          .awardSuccess(milk: milkPerFullRoutine);
-                    }
-                  },
+                (item) => Builder(
+                  builder: (itemContext) => _RoutineItemTile(
+                    item: item,
+                    checked: completedIds.contains(item.id),
+                    onToggle: () async {
+                      final fullyCompleted = await ref
+                          .read(routineRepositoryProvider)
+                          .toggleItemForToday(
+                            routineId: routine.id,
+                            itemId: item.id,
+                            totalItemCount: items.length,
+                          );
+                      ref.invalidate(streakProvider(routine.id));
+                      hapticTaskComplete();
+                      // Kuh-Evolution: Milch-Bonus genau in dem Moment,
+                      // in dem die Routine komplett abgehakt wird.
+                      if (fullyCompleted) {
+                        final spawnResult = await ref
+                            .read(cowPastureProvider.notifier)
+                            .awardSuccess(milk: milkPerFullRoutine);
+
+                        final soundEnabled = ref.read(appSettingsProvider).soundEnabled;
+                        maybePlaySound(soundEnabled, SoundEvent.taskComplete);
+
+                        if (itemContext.mounted) {
+                          final start = globalCenterOf(itemContext);
+                          if (start != null) {
+                            FlyingRewardOverlay.play(
+                              itemContext,
+                              startGlobalPosition: start,
+                              emoji: '🥛',
+                            );
+                          }
+                          ScaffoldMessenger.of(itemContext)
+                            ..clearSnackBars()
+                            ..showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  spawnResult == CowSpawnResult.pastureFull
+                                      ? 'Weide voll! Merge deine Kühe! 🐄'
+                                      : 'Routine komplett geschafft! 🌞',
+                                ),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                        }
+                      }
+                    },
+                  ),
                 ),
               ),
             ],

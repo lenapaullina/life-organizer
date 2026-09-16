@@ -6,6 +6,7 @@ import '../../budget/presentation/budget_screen.dart';
 import '../../cow_evolution/presentation/cow_pasture_screen.dart';
 import '../../gesundheit/presentation/gesundheit_screen.dart';
 import '../../kontakte/presentation/contacts_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 import '../../theme_lab/presentation/theme_and_shop_screen.dart';
 import '../../vorrat/presentation/pantry_screen.dart';
 import '../../watchlist/presentation/watchlist_screen.dart';
@@ -70,8 +71,8 @@ class MoreScreen extends StatelessWidget {
         builder: (BuildContext _) => const StyleShowcaseScreen(),
       ),
       (
-        icon: Icons.palette_outlined,
-        label: 'Farben & Milch-Shop',
+        icon: Icons.storefront_outlined,
+        label: 'Milch-Shop',
         builder: (BuildContext _) => const ThemeAndShopScreen(),
       ),
       (
@@ -82,7 +83,18 @@ class MoreScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mehr')),
+      appBar: AppBar(
+        title: const Text('Mehr'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Einstellungen',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.md),
         itemCount: items.length,

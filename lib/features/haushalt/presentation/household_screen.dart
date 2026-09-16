@@ -5,13 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../cow_evolution/application/cow_pasture_providers.dart';
 import '../../../shared/utils/status_calculator.dart';
+import '../../../shared/widgets/flying_reward_overlay.dart';
 import '../../../shared/widgets/interval_progress_bar.dart';
 import '../../../shared/widgets/quick_action_button.dart';
 import '../../../shared/widgets/status_pill.dart';
+import '../../cow_evolution/application/cow_pasture_providers.dart';
+import '../../settings/application/app_settings_providers.dart';
 import '../application/household_task_providers.dart';
 import '../application/household_task_with_status.dart';
+import '../application/task_tag_providers.dart';
+import '../domain/task_tag.dart';
 import 'add_household_task_sheet.dart';
 import 'edit_household_task_dialog.dart';
 import 'household_history_screen.dart';
@@ -86,6 +90,7 @@ class _HouseholdScreenState extends ConsumerState<HouseholdScreen> {
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(sortedHouseholdTasksProvider);
+    final tags = ref.watch(taskTagProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -127,11 +132,37 @@ class _HouseholdScreenState extends ConsumerState<HouseholdScreen> {
               return Dismissible(
                 key: ValueKey(entry.task.id),
                 direction: DismissDirection.horizontal,
-                background: _DismissBackground(alignment: Alignment.centerLeft),
-                secondaryBackground: _DismissBackground(alignment: Alignment.centerRight),
+                background: const _DismissBackground(
+                  alignment: Alignment.centerLeft,
+                  color: AppColors.statusGreen,
+                  bgColor: AppColors.statusGreenBg,
+                  icon: Icons.check_circle_outline,
+                ),
+                secondaryBackground: const _DismissBackground(
+                  alignment: Alignment.centerRight,
+                  color: AppColors.statusRed,
+                  bgColor: AppColors.statusRedBg,
+                  icon: Icons.delete_outline,
+                ),
+                // Nach rechts wischen = erledigt (Aufgabe bleibt in der
+                // Liste, daher confirmDismiss=false), nach links wischen
+                // = löschen (confirmDismiss=true, onDismissed übernimmt).
+                confirmDismiss: (direction) async {
+                  if (direction == DismissDirection.startToEnd) {
+                    await _TaskCard.markCompletedWithUndo(
+                      context,
+                      ref,
+                      taskId: entry.task.id,
+                      taskName: entry.task.name,
+                    );
+                    return false;
+                  }
+                  return true;
+                },
                 onDismissed: (_) => _deleteWithUndo(entry.task.id, entry.task.name),
                 child: _TaskCard(
                   entry: entry,
+                  tag: tags[entry.task.id],
                   onDelete: () => _deleteWithUndo(entry.task.id, entry.task.name),
                 ),
               );
@@ -160,49 +191,81 @@ class _HouseholdScreenState extends ConsumerState<HouseholdScreen> {
   }
 }
 
-/// Roter Hintergrund mit Papierkorb-Icon, der beim Wischen sichtbar
-/// wird – je nach Wischrichtung links oder rechts ausgerichtet.
+/// Hintergrund, der beim Wischen sichtbar wird – grün+Haken beim
+/// Wischen nach rechts (erledigen), rot+Papierkorb nach links (löschen).
 class _DismissBackground extends StatelessWidget {
   final Alignment alignment;
-  const _DismissBackground({required this.alignment});
+  final Color color;
+  final Color bgColor;
+  final IconData icon;
+
+  const _DismissBackground({
+    required this.alignment,
+    required this.color,
+    required this.bgColor,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.statusRedBg,
+        color: bgColor,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: AppColors.statusRed, width: 2),
+        border: Border.all(color: color, width: 2),
       ),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       alignment: alignment,
-      child: const Icon(Icons.delete_outline, color: AppColors.statusRed),
+      child: Icon(icon, color: color),
     );
   }
 }
 
 class _TaskCard extends ConsumerWidget {
   final HouseholdTaskWithStatus entry;
+  final TaskTag? tag;
   final VoidCallback onDelete;
 
-  const _TaskCard({required this.entry, required this.onDelete});
+  const _TaskCard({required this.entry, required this.tag, required this.onDelete});
 
-  Future<void> _markCompletedWithUndo(BuildContext context, WidgetRef ref, {
+  /// Statisch aufrufbar, damit sowohl der "Heute erledigt"-Button als
+  /// auch das Swipe-nach-rechts-Gesture (im übergeordneten
+  /// HouseholdScreen, das keinen direkten Zugriff auf den lokalen
+  /// BuildContext der Karte hat) dieselbe Logik nutzen.
+  static Future<void> markCompletedWithUndo(
+    BuildContext context,
+    WidgetRef ref, {
     required String taskId,
     required String taskName,
+    Offset? flyFrom,
   }) async {
     final repo = ref.read(householdTaskRepositoryProvider);
     await repo.markCompleted(taskId);
+
     // Kuh-Evolution: jede erledigte Aufgabe bringt direkt Milch und,
     // falls noch Platz auf der Weide ist, eine neue Level-1-Kuh.
-    unawaited(ref.read(cowPastureProvider.notifier).awardSuccess(milk: milkPerHouseholdTask));
+    final spawnResult =
+        await ref.read(cowPastureProvider.notifier).awardSuccess(milk: milkPerHouseholdTask);
+
+    hapticTaskComplete();
+    final soundEnabled = ref.read(appSettingsProvider).soundEnabled;
+    maybePlaySound(soundEnabled, SoundEvent.taskComplete);
 
     if (context.mounted) {
+      final start = flyFrom ?? globalCenterOf(context);
+      if (start != null) {
+        FlyingRewardOverlay.play(context, startGlobalPosition: start, emoji: '🥛');
+      }
+
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
-            content: Text('"$taskName" erledigt ${_cheerFor(taskName)}'),
+            content: Text(
+              spawnResult == CowSpawnResult.pastureFull
+                  ? 'Weide voll! Merge deine Kühe! 🐄'
+                  : '"$taskName" erledigt ${_cheerFor(taskName)}',
+            ),
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
               label: 'Rückgängig',
@@ -239,16 +302,19 @@ class _TaskCard extends ConsumerWidget {
                   onPressed: () async {
                     final markDone = await showMicroTaskSplitterSheet(context, task.name);
                     if (markDone == true && context.mounted) {
-                      await _markCompletedWithUndo(context, ref, taskId: task.id, taskName: task.name);
+                      await _TaskCard.markCompletedWithUndo(
+                        context,
+                        ref,
+                        taskId: task.id,
+                        taskName: task.name,
+                      );
                     }
                   },
                   visualDensity: VisualDensity.compact,
                 ),
-                // Bearbeiten + Löschen gebündelt in einem Menü – für
-                // alle, die die Swipe-zum-Löschen-Geste nicht entdecken
-                // oder lieber gezielt tippen, statt für jede Aktion
-                // einen eigenen Icon-Button in der ohnehin schon vollen
-                // Kopfzeile zu brauchen.
+                // Bearbeiten/Löschen/Tag gebündelt in einem Menü – für
+                // alle, die die Wisch-Gesten nicht entdecken oder lieber
+                // gezielt tippen.
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, size: 20),
                   onSelected: (value) {
@@ -256,10 +322,20 @@ class _TaskCard extends ConsumerWidget {
                       showEditHouseholdTaskDialog(context, ref, task);
                     } else if (value == 'delete') {
                       onDelete();
+                    } else if (value == 'tag_urgent') {
+                      ref.read(taskTagProvider.notifier).setTag(
+                            task.id,
+                            tag == TaskTag.urgent ? null : TaskTag.urgent,
+                          );
+                    } else if (value == 'tag_chill') {
+                      ref.read(taskTagProvider.notifier).setTag(
+                            task.id,
+                            tag == TaskTag.chill ? null : TaskTag.chill,
+                          );
                     }
                   },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
                       value: 'edit',
                       child: Row(
                         children: [
@@ -270,6 +346,26 @@ class _TaskCard extends ConsumerWidget {
                       ),
                     ),
                     PopupMenuItem(
+                      value: 'tag_urgent',
+                      child: Row(
+                        children: [
+                          const Text('🔥', style: TextStyle(fontSize: 16)),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(tag == TaskTag.urgent ? 'Dringend-Tag entfernen' : 'Als Dringend markieren'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'tag_chill',
+                      child: Row(
+                        children: [
+                          const Text('☕', style: TextStyle(fontSize: 16)),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(tag == TaskTag.chill ? 'Entspannt-Tag entfernen' : 'Als Entspannt markieren'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
@@ -291,6 +387,10 @@ class _TaskCard extends ConsumerWidget {
                 ),
               ],
             ),
+            if (tag != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _TagBadge(tag: tag!),
+            ],
             const SizedBox(height: AppSpacing.sm),
             IntervalProgressBar(intervalStatus: status),
             const SizedBox(height: AppSpacing.xs),
@@ -303,19 +403,44 @@ class _TaskCard extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             Align(
               alignment: Alignment.centerRight,
-              child: QuickActionButton(
-                label: 'Heute erledigt',
-                icon: Icons.check_circle_outline,
-                onPressed: () => _markCompletedWithUndo(
-                  context,
-                  ref,
-                  taskId: task.id,
-                  taskName: task.name,
+              child: Builder(
+                builder: (buttonContext) => QuickActionButton(
+                  label: 'Heute erledigt',
+                  icon: Icons.check_circle_outline,
+                  onPressed: () => _TaskCard.markCompletedWithUndo(
+                    buttonContext,
+                    ref,
+                    taskId: task.id,
+                    taskName: task.name,
+                    flyFrom: globalCenterOf(buttonContext),
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Kleines 2000er-Forum-Badge für den optionalen Prioritäts-Tag.
+class _TagBadge extends StatelessWidget {
+  final TaskTag tag;
+  const _TagBadge({required this.tag});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+        border: Border.all(color: AppColors.accentCyan, width: 1.2),
+      ),
+      child: Text(
+        '${tag.emoji} ${tag.label}',
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }

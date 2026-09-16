@@ -20,6 +20,29 @@ final _allHouseholdTasksProvider = StreamProvider<List<HouseholdTask>>((ref) {
   return db.select(db.householdTasks).watch();
 });
 
+/// Tagesziel für das Dashboard: fest auf 5 – bewusst simpel statt
+/// individuell einstellbar (kein neues Einstellungsfeld für diese
+/// Runde), aber an einer Stelle, an der es sich leicht ändern lässt.
+const dailyGoal = 5;
+
+bool _isToday(DateTime d) {
+  final now = DateTime.now();
+  return d.year == now.year && d.month == now.month && d.day == now.day;
+}
+
+/// (erledigt heute, Ziel) fürs Tagesziel-Progress-Bar auf dem
+/// Dashboard – zählt genau wie [totalSuccessCountProvider], nur auf
+/// den heutigen Kalendertag eingeschränkt.
+final dailyGoalProgressProvider = Provider<(int, int)>((ref) {
+  final household = ref.watch(_allHouseholdCompletionsProvider).valueOrNull ?? [];
+  final routines = ref.watch(_allRoutineCompletionsProvider).valueOrNull ?? [];
+
+  final doneToday = household.where((c) => _isToday(c.completedAt)).length +
+      routines.where((r) => r.fullyCompleted && _isToday(r.date)).length;
+
+  return (doneToday, dailyGoal);
+});
+
 /// Zählt jede "Heute erledigt"-Aktion (Haushalt) und jede vollständig
 /// abgeschlossene Routine als 1 Erfolg. Bewusst kumulativ statt
 /// Tages-Streak – jeder Erfolg bleibt sichtbar, nichts "verfällt".

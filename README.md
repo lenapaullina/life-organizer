@@ -882,3 +882,46 @@ ohne Wirkung.** Drei Rückmeldungen in einer Runde behoben:
    Boden die komplette Weide aus (`BoxFit.cover`, genau wie die
    bisherigen Boden-Themes) – die eigenständige "Fell-Muster"-Sektion
    im Shop ist entfallen.
+
+**Echte Sound-Effekte statt Stumm-Platzhalter.** Der bisherige
+`maybePlaySound`-Hook (siehe "Bewusst NICHT umgesetzt" oben) tat
+absichtlich nichts Hörbares, weil in dieser Sandbox kein Zugriff auf
+pub.dev bestand, um ein Audio-Package zu prüfen, und keine Sound-Dateien
+vorlagen. Beides ist jetzt da:
+
+- Lena hat freie Tieraufnahmen mitgebracht ("Mudchute Park and Farm"
+  von Wikimedia Commons, Nutzer *Secretlondon*, gehostet auf
+  OpenGameArt.org, lizenziert unter GFDL 1.2+ oder CC-BY-SA 3.0+). Alle
+  acht `.ogg`-Dateien (Kuh, 2× Ente, Lamm, 3× Schwein, Schaf) liegen
+  jetzt unter `assets/sounds/`, die ursprüngliche Lizenz-/Quellenangabe
+  ist unverändert als `assets/sounds/ATTRIBUTION.txt` mit dabei –
+  bitte beim Veröffentlichen der App diese Datei nicht löschen, beide
+  Lizenzen verlangen Namensnennung.
+- Als Audio-Package kommt `audioplayers` (`^6.0.0`, neu in
+  `pubspec.yaml`) zum Einsatz – ein etabliertes, seit Jahren stabiles
+  Package mit einer sehr einfachen API. Wichtiger Hinweis zur
+  Transparenz: Diese Sandbox hat weiterhin **keinen** pub.dev-Zugriff
+  (nochmal explizit geprüft – die Anfrage wird vom Proxy blockiert),
+  ich konnte den Code hier also nicht gegen einen echten Compiler
+  verifizieren. Dein `flutter pub get`/`flutter run` läuft aber ganz
+  normal mit deinem eigenen Internetzugang – falls dabei ein API-Fehler
+  auftaucht, schick mir bitte die genaue Fehlermeldung, dann fixe ich
+  das gezielt (wie bisher bei den Layout-Bugs).
+- `maybePlaySound` in `app_settings_providers.dart` spielt jetzt via
+  einem einzigen wiederverwendeten `AudioPlayer` echte Dateien ab:
+  Schaf-Blöken bei `SoundEvent.taskComplete` (Task/Routine erledigt),
+  Kuh-Muhen bei `SoundEvent.merge` (zwei Kühe verschmolzen). Ente/
+  Schwein/Lamm liegen als Bonus-Assets bereit, falls später mehr
+  Abwechslung gewünscht ist. Die Wiedergabe ist bewusst
+  "fire-and-forget" mit `catchError`: schlägt sie fehl (fehlendes
+  Asset, Codec-Problem o. Ä.), bleibt es einfach stumm – die
+  eigentliche Task-Erledigung/Merge-Aktion wird davon nie blockiert
+  oder zum Absturz gebracht.
+- Der Info-Text zum Sound-Schalter in den Einstellungen wurde
+  entsprechend aktualisiert (nicht mehr "noch ohne Audio-Datei").
+- Die eigene Sprachmemo-Aufnahme im Kuh-Profil ist davon bewusst NICHT
+  betroffen: `audioplayers` kann nur ABSPIELEN, für eine eigene
+  Mikrofon-Aufnahme bräuchte es zusätzlich ein Recorder-Package (z. B.
+  `record`) inkl. Berechtigungs-Handling – das ist weiterhin ein
+  separater, noch offener Punkt (Hinweistext im Profil entsprechend
+  präzisiert).

@@ -24,8 +24,8 @@ class SettingsScreen extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
             title: const Text('Sound-Effekte'),
             subtitle: const Text(
-              'Kurzer Ping beim Erledigen, leises "Muh" beim Mergen. '
-              '(Vorbereitet, aktuell noch ohne Audio-Datei hinterlegt.)',
+              'Kurzes Schaf-Blöken beim Erledigen, "Muh" beim Mergen '
+              '(freie Mudchute-Park-&-Farm-Tieraufnahmen).',
             ),
             value: settings.soundEnabled,
             onChanged: notifier.setSoundEnabled,

@@ -44,12 +44,13 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
   }
 
   void _toggleRecording() {
-    // Bewusster, ehrlicher Scoping-Hinweis (wie bei den Sound-Effekten
-    // in app_settings_providers.dart): Diese Sandbox kann kein
-    // Audio-Package (z. B. `record`/`audioplayers`) gegen pub.dev
-    // prüfen, daher gibt es hier noch keine echte Aufnahme/Wiedergabe.
-    // Die UI ist vorbereitet, damit später nur noch die Hook-Funktion
-    // hier ausgetauscht werden muss.
+    // Bewusster, ehrlicher Scoping-Hinweis: `audioplayers` (jetzt in
+    // pubspec.yaml) kann fertige Sound-Dateien ABSPIELEN (siehe
+    // maybePlaySound in app_settings_providers.dart) – für eine
+    // eigene MIKROFON-AUFNAHME bräuchte es zusätzlich ein Recorder-
+    // Package (z. B. `record`) inkl. Mikrofon-Berechtigungen, das noch
+    // nicht eingebunden ist. Die UI ist vorbereitet, damit später nur
+    // noch die Hook-Funktion hier ausgetauscht werden muss.
     setState(() => _isRecording = !_isRecording);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -140,8 +141,9 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
                 Text('Sprachmemo ("Muh")', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.xs),
                 const Text(
-                  'Vorbereitet, aktuell noch ohne echtes Audio-Paket (siehe Sound-Hinweis in '
-                  'den Einstellungen) – Aufnahme/Wiedergabe tun noch nichts Hörbares.',
+                  'Eigene Aufnahme/Wiedergabe kommt noch (getrennt von den '
+                  'Sound-Effekten in den Einstellungen, die bereits echtes Audio abspielen) '
+                  '– hier tut sich aktuell noch nichts Hörbares.',
                   style: TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: AppSpacing.sm),

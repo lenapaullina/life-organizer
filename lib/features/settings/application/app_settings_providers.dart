@@ -1,3 +1,5 @@
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,19 +32,43 @@ final appSettingsProvider = StateNotifierProvider<AppSettingsNotifier, AppSettin
   return AppSettingsNotifier(ref.watch(_appSettingsStoreProvider));
 });
 
-/// Sound-Events, für die (perspektivisch) ein Ton abgespielt werden soll.
+/// Sound-Events, für die ein Ton abgespielt werden soll.
 enum SoundEvent { taskComplete, merge }
 
-/// Bewusster, ehrlicher Scoping-Hinweis: Diese Sandbox hat keinen
-/// Netzwerkzugriff auf pub.dev, um ein Audio-Package (z. B.
-/// `audioplayers`) zu prüfen, und es liegen keine Sound-Assets vor.
-/// Diese Funktion ist der vorbereitete "Hook" dafür – sie tut aktuell
-/// nichts Hörbares, respektiert aber schon den An/Aus-Schalter aus den
-/// Einstellungen, sodass ein echtes Sound-Package später nur noch HIER
-/// eingehängt werden muss, ohne den Rest der App anzufassen.
+/// Ein einziger, wiederverwendeter [AudioPlayer] statt pro Sound-Event einen
+/// neuen zu erstellen – vermeidet unnötigen Overhead bei häufigen Erfolgen
+/// (z. B. viele abgehakte Haushalts-Tasks hintereinander).
+final _soundPlayer = AudioPlayer();
+
+/// Datei je [SoundEvent], jeweils unter `assets/sounds/` (siehe
+/// `assets/sounds/ATTRIBUTION.txt` für Lizenz/Quelle: freie
+/// Mudchute-Park-&-Farm-Tieraufnahmen von Lena, CC-BY-SA/GFDL).
+///
+/// Zuordnung bewusst thematisch statt zufällig gewählt: das Schaf für
+/// "Task erledigt" (kurz, unaufdringlich, passt zum ADHS-freundlichen
+/// leisen Ping), die Kuh fürs Mergen (die Kern-Spielmechanik dreht sich
+/// ja um Kühe). Ente/Schwein/Lamm liegen als Bonus-Assets bereit, falls
+/// später mehr Abwechslung gewünscht ist.
+const _soundAssetByEvent = <SoundEvent, String>{
+  SoundEvent.taskComplete: 'sounds/Mudchute_sheep_1.ogg',
+  SoundEvent.merge: 'sounds/Mudchute_cow_1.ogg',
+};
+
+/// Spielt den zu [event] gehörenden Ton ab, sofern Sound in den
+/// Einstellungen aktiviert ist. Bewusst "fire-and-forget" mit
+/// `catchError`: ein Problem bei der Audiowiedergabe (z. B. fehlendes
+/// Asset, Plattform-Codec-Problem) darf NIEMALS die eigentliche
+/// Task-Erledigung/Merge-Aktion blockieren oder die App zum Absturz
+/// bringen – im schlimmsten Fall bleibt es einfach stumm.
 void maybePlaySound(bool soundEnabled, SoundEvent event) {
   if (!soundEnabled) return;
-  // TODO(Sound): echtes Audio-Package einhängen, sobald geprüft/verfügbar.
+  final asset = _soundAssetByEvent[event];
+  if (asset == null) return;
+  _soundPlayer.play(AssetSource(asset)).catchError((Object error, StackTrace stackTrace) {
+    if (kDebugMode) {
+      debugPrint('Sound konnte nicht abgespielt werden ($asset): $error');
+    }
+  });
 }
 
 /// Haptisches Feedback ist unabhängig vom Sound-Schalter immer an –

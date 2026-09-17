@@ -35,6 +35,12 @@ class Cow {
   /// z. B. `['sunglasses', 'gold_chain']`.
   final List<String> equippedAccessoryIds;
 
+  /// Pfad zur aufgenommenen Sprachmemo-Datei (siehe
+  /// `voice_memo_storage.dart`), `null` = noch keine Aufnahme
+  /// vorhanden. Eine neue Aufnahme ersetzt die alte Datei komplett
+  /// (siehe `CowPastureNotifier.setVoiceMemoPath`).
+  final String? voiceMemoPath;
+
   const Cow({
     required this.id,
     required this.level,
@@ -44,6 +50,7 @@ class Cow {
     required this.createdAt,
     this.originLabel,
     this.equippedAccessoryIds = const [],
+    this.voiceMemoPath,
   });
 
   CowCharacterType get characterType =>
@@ -58,6 +65,8 @@ class Cow {
     String? customName,
     bool clearCustomName = false,
     List<String>? equippedAccessoryIds,
+    String? voiceMemoPath,
+    bool clearVoiceMemoPath = false,
   }) {
     return Cow(
       id: id,
@@ -68,6 +77,7 @@ class Cow {
       createdAt: createdAt,
       originLabel: originLabel,
       equippedAccessoryIds: equippedAccessoryIds ?? this.equippedAccessoryIds,
+      voiceMemoPath: clearVoiceMemoPath ? null : (voiceMemoPath ?? this.voiceMemoPath),
     );
   }
 
@@ -80,6 +90,7 @@ class Cow {
         'createdAt': createdAt.toIso8601String(),
         'originLabel': originLabel,
         'equippedAccessoryIds': equippedAccessoryIds,
+        'voiceMemoPath': voiceMemoPath,
       };
 
   factory Cow.fromJson(Map<String, dynamic> json) => Cow(
@@ -91,6 +102,7 @@ class Cow {
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
         originLabel: json['originLabel'] as String?,
         equippedAccessoryIds: (json['equippedAccessoryIds'] as List? ?? []).cast<String>(),
+        voiceMemoPath: json['voiceMemoPath'] as String?,
       );
 }
 

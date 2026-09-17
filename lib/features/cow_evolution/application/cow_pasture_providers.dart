@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/storage/json_object_store.dart';
+import '../../../shared/utils/voice_memo_storage.dart';
 import '../domain/cow.dart';
 import '../domain/cow_character.dart';
 
@@ -398,6 +399,27 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
       }
       return c.copyWith(equippedAccessoryIds: equipped);
     }).toList();
+    await _persist(current.copyWith(cows: cows));
+  }
+
+  /// Speichert den Pfad einer neuen Sprachmemo-Aufnahme (bzw. löscht
+  /// sie mit `path = null`). Eine bereits vorhandene alte Aufnahme
+  /// dieser Kuh wird von der Festplatte entfernt, damit sich nicht
+  /// unbegrenzt verwaiste Audio-Dateien ansammeln.
+  Future<void> setVoiceMemoPath(String cowId, String? path) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    Cow? target;
+    final cows = current.cows.map((c) {
+      if (c.id != cowId) return c;
+      target = c;
+      return c.copyWith(voiceMemoPath: path, clearVoiceMemoPath: path == null);
+    }).toList();
+    if (target == null) return;
+    final oldPath = target!.voiceMemoPath;
+    if (oldPath != null && oldPath != path) {
+      await deleteVoiceMemo(oldPath);
+    }
     await _persist(current.copyWith(cows: cows));
   }
 

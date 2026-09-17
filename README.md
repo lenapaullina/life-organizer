@@ -925,3 +925,33 @@ vorlagen. Beides ist jetzt da:
   `record`) inkl. Berechtigungs-Handling – das ist weiterhin ein
   separater, noch offener Punkt (Hinweistext im Profil entsprechend
   präzisiert).
+
+**Echte Sprachmemo-Aufnahme im Kuh-Profil.** Der oben genannte offene
+Punkt ist jetzt umgesetzt:
+
+- Neues Package `record` (`^5.1.2`) übernimmt die Mikrofon-Aufnahme;
+  `audioplayers` (schon vorhanden) übernimmt die Wiedergabe der
+  aufgenommenen Datei. Mikrofon-Berechtigungen für Android
+  (`RECORD_AUDIO`) und iOS (`NSMicrophoneUsageDescription`) lagen
+  bereits aus der Brain-Dump-Sprache-zu-Text-Funktion vor und werden
+  mitbenutzt – keine neuen Berechtigungs-Einträge nötig.
+- Neue Datei `lib/shared/utils/voice_memo_storage.dart`: erzeugt einen
+  dauerhaften Speicherpfad im App-Verzeichnis (`voice_memos/`, analog
+  zu `image_storage.dart` für Fotos) und räumt die alte Aufnahme aus,
+  sobald eine neue gespeichert wird – so sammeln sich keine
+  verwaisten Audio-Dateien an.
+- `Cow` (in `cow.dart`) hat jetzt ein Feld `voiceMemoPath` (persistiert
+  wie alle anderen Kuh-Daten); `CowPastureNotifier.setVoiceMemoPath`
+  speichert eine neue Aufnahme und löscht dabei fehlertolerant die
+  vorherige Datei.
+- Im Kuh-Profil-Modal starten/stoppen "Aufnehmen" und "Abspielen"
+  jetzt eine echte `AudioRecorder`- bzw. `AudioPlayer`-Instanz. Fehlt
+  die Mikrofon-Berechtigung oder schlägt Aufnahme/Wiedergabe aus
+  einem anderen Grund fehl (z. B. kein Mikrofon vorhanden), zeigt eine
+  Snackbar einen kurzen Hinweis statt dass die App abstürzt – nach dem
+  gleichen Fail-Safe-Prinzip wie bei den Sound-Effekten.
+- Transparenz-Hinweis wie beim `audioplayers`-Einbau: `record` ist
+  ebenfalls ein etabliertes, weit verbreitetes Package, konnte hier
+  aber mangels pub.dev-Zugriff nicht compiler-geprüft werden. Bitte
+  bei einem Build-Fehler die genaue Meldung schicken, dann wird gezielt
+  nachgebessert.

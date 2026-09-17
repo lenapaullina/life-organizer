@@ -1,8 +1,12 @@
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:record/record.dart';
 
 import '../../../core/assets/cow_asset_registry.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/utils/voice_memo_storage.dart';
 import '../application/cow_pasture_providers.dart';
 import '../domain/cow.dart';
 import '../domain/cow_accessory.dart';
@@ -29,38 +33,85 @@ class CowProfileModal extends ConsumerStatefulWidget {
 
 class _CowProfileModalState extends ConsumerState<CowProfileModal> {
   late final TextEditingController _nameController;
+  final AudioRecorder _recorder = AudioRecorder();
+  final AudioPlayer _player = AudioPlayer();
   bool _isRecording = false;
+  bool _isPlaying = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    // Sobald die Wiedergabe von selbst zu Ende ist, den Button wieder
+    // auf "Abspielen" zurücksetzen (statt dauerhaft "läuft" zu zeigen).
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _isPlaying = false);
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    // Fire-and-forget: eine laufende Aufnahme/Wiedergabe beim Schließen
+    // des Modals sauber beenden, ohne das Dispose selbst zu blockieren.
+    _recorder.dispose();
+    _player.dispose();
     super.dispose();
   }
 
-  void _toggleRecording() {
-    // Bewusster, ehrlicher Scoping-Hinweis: `audioplayers` (jetzt in
-    // pubspec.yaml) kann fertige Sound-Dateien ABSPIELEN (siehe
-    // maybePlaySound in app_settings_providers.dart) – für eine
-    // eigene MIKROFON-AUFNAHME bräuchte es zusätzlich ein Recorder-
-    // Package (z. B. `record`) inkl. Mikrofon-Berechtigungen, das noch
-    // nicht eingebunden ist. Die UI ist vorbereitet, damit später nur
-    // noch die Hook-Funktion hier ausgetauscht werden muss.
-    setState(() => _isRecording = !_isRecording);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isRecording
-              ? 'Aufnahme gestartet (Vorschau – noch ohne echtes Audio-Paket).'
-              : 'Aufnahme gestoppt (wird noch nicht gespeichert).',
-        ),
-      ),
-    );
+  Future<void> _toggleRecording(Cow cow) async {
+    if (_isRecording) {
+      final path = await _recorder.stop();
+      if (!mounted) return;
+      setState(() => _isRecording = false);
+      if (path != null) {
+        await ref.read(cowPastureProvider.notifier).setVoiceMemoPath(cow.id, path);
+      }
+      return;
+    }
+
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ohne Mikrofon-Berechtigung kann nicht aufgenommen werden.')),
+      );
+      return;
+    }
+
+    try {
+      final path = await newVoiceMemoPath();
+      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      if (!mounted) return;
+      setState(() => _isRecording = true);
+    } catch (error) {
+      // Fail-safe: ein Aufnahme-Fehler (z. B. kein Mikrofon vorhanden)
+      // darf nie die App abstürzen lassen, nur die Aufnahme scheitern.
+      if (kDebugMode) debugPrint('Aufnahme konnte nicht gestartet werden: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aufnahme konnte nicht gestartet werden.')),
+      );
+    }
+  }
+
+  Future<void> _togglePlayback(String memoPath) async {
+    if (_isPlaying) {
+      await _player.stop();
+      if (mounted) setState(() => _isPlaying = false);
+      return;
+    }
+    try {
+      await _player.play(DeviceFileSource(memoPath));
+      if (!mounted) return;
+      setState(() => _isPlaying = true);
+    } catch (error) {
+      if (kDebugMode) debugPrint('Memo konnte nicht abgespielt werden: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Memo konnte nicht abgespielt werden.')),
+      );
+    }
   }
 
   @override
@@ -140,11 +191,11 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
                 const SizedBox(height: AppSpacing.lg),
                 Text('Sprachmemo ("Muh")', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  'Eigene Aufnahme/Wiedergabe kommt noch (getrennt von den '
-                  'Sound-Effekten in den Einstellungen, die bereits echtes Audio abspielen) '
-                  '– hier tut sich aktuell noch nichts Hörbares.',
-                  style: TextStyle(fontSize: 12),
+                Text(
+                  cow.voiceMemoPath == null
+                      ? 'Noch keine Aufnahme vorhanden.'
+                      : 'Eine Aufnahme ist gespeichert – neu aufnehmen ersetzt sie.',
+                  style: const TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Row(
@@ -156,7 +207,7 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
                     // hier die Ursache für den schwarzen Profil-Screen.
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _toggleRecording,
+                        onPressed: () => _toggleRecording(cow),
                         icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic_none),
                         label: Text(_isRecording ? 'Stopp' : 'Aufnehmen'),
                       ),
@@ -164,11 +215,13 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Noch kein Memo aufgenommen.')),
-                        ),
-                        icon: const Icon(Icons.play_arrow),
-                        label: const Text('Abspielen'),
+                        onPressed: cow.voiceMemoPath == null
+                            ? () => ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Noch kein Memo aufgenommen.')),
+                                )
+                            : () => _togglePlayback(cow.voiceMemoPath!),
+                        icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
+                        label: Text(_isPlaying ? 'Stopp' : 'Abspielen'),
                       ),
                     ),
                   ],

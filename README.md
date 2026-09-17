@@ -955,3 +955,21 @@ Punkt ist jetzt umgesetzt:
   aber mangels pub.dev-Zugriff nicht compiler-geprüft werden. Bitte
   bei einem Build-Fehler die genaue Meldung schicken, dann wird gezielt
   nachgebessert.
+
+**Bugfix: Build-Fehler durch `record` in Version 5.1.2.** Lenas
+`flutter run` schlug beim Kompilieren fehl:
+`RecordLinux` (aus `record_linux 0.7.2`) implementierte nicht alle von
+`record_platform_interface 1.6.0` geforderten Methoden
+(`startStream`, `hasPermission` mit anderer Signatur). Das ist ein
+Versions-Schiefstand zwischen dem `record`-Kernpaket und einer seiner
+plattform-spezifischen Implementierungen, wie er bei älteren
+`record`-5.x-Ständen vorkommen kann (die Kompilierung bezieht dabei
+alle nativen Plattform-Implementierungen ein, nicht nur Android – ein
+Linux-Build-Fehler kann so auch einen Android-Build blockieren).
+Fix: `record`-Abhängigkeit in `pubspec.yaml` von `^5.1.2` auf `^6.1.1`
+angehoben, wo Kernpaket und Plattform-Implementierungen laut
+Changelog wieder synchron zueinander veröffentlicht wurden. Da diese
+Sandbox weiterhin keinen pub.dev-Zugriff hat, bitte nach dem Einspielen
+einmal `flutter clean && flutter pub get` laufen lassen (nicht nur
+`pub get` alleine), damit eine alte, im Cache liegende `pubspec.lock`-
+Auflösung nicht versehentlich wiederverwendet wird.

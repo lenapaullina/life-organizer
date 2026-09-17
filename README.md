@@ -843,9 +843,9 @@ durch Lenas eigene, handgezeichnete PNGs:
   `cow_accessory.dart`) sind plausible Startwerte, keine pixelgenaue
   Kalibrierung – die braucht das echte `base_cow.png`, um sinnvoll
   einjustiert zu werden.
-- Fell-Muster sind aktuell reine Freischalt-/Sammel-Items ohne echte
-  Anwendung auf eine Kuh-Silhouette (dafür fehlt die Maske aus
-  `base_cow.png`).
+- Ein echtes Einfärben der Kuh-SILHOUETTE selbst (nicht nur des
+  Weiden-Bodens) mit den drei Mustern bräuchte weiterhin die Maske aus
+  `base_cow.png`.
 - Sprachmemo-Aufnahme/Wiedergabe: nur UI, kein echtes Audio-Paket
   (gleiche Einschränkung wie die Sound-Effekte).
 - Eine deiner gelieferten Dateien (`dekozaun-asset.png`) enthielt aus
@@ -856,3 +856,29 @@ durch Lenas eigene, handgezeichnete PNGs:
   exportierst, kannst du die entsprechenden Dateien unter
   `assets/images/accessories/` bzw. `assets/images/pasture/` und
   `assets/images/decorations/` einfach ersetzen.
+
+**Bugfix: schwarzer Screen im Kuh-Profil + zu große Zäune + Fell-Muster
+ohne Wirkung.** Drei Rückmeldungen in einer Runde behoben:
+
+1. Gleicher Fehler wie beim Einstellungen-/Milch-Shop-Crash, nur an
+   neuer Stelle: Im Kuh-Profil-Modal standen zwei
+   `OutlinedButton.icon`-Buttons (Aufnehmen/Abspielen) direkt in einer
+   `Row` ohne `Expanded` – die unendliche Mindestbreite aus dem
+   Button-Theme (siehe Bugfix oben) ließ das Profil beim Öffnen sofort
+   abstürzen (schwarzer Screen). Fix: beide Buttons in `Expanded`
+   eingepackt. Ein erneuter Scan über den Rest der App fand keine
+   weiteren Stellen mit diesem Muster.
+2. Der Zaun-Streifen nutzte `BoxFit.cover` auf ein sehr viel breiteres
+   als hohes Bild – das skaliert so stark hoch, dass am Ende nur ein
+   winziger, riesig wirkender Ausschnitt sichtbar war. Fix: Das Bild
+   wird jetzt per `DecorationImage` auf die Streifenhöhe herunter- statt
+   hochskaliert (`BoxFit.fitHeight`) und mehrfach nebeneinander
+   wiederholt (`ImageRepeat.repeatX`) – die Zaunpfosten bleiben klein
+   und erkennbar.
+3. Die drei "Kuh-Muster" (Milka/Giraffe/Neon) waren als eigene
+   "Fell-Muster"-Kategorie im Shop nur Sammel-Items ohne sichtbaren
+   Effekt. Auf Wunsch sind sie jetzt Teil der Weiden-Boden-Auswahl
+   (`pastureGrounds` in `cow_accessory.dart`) und füllen als aktiver
+   Boden die komplette Weide aus (`BoxFit.cover`, genau wie die
+   bisherigen Boden-Themes) – die eigenständige "Fell-Muster"-Sektion
+   im Shop ist entfallen.

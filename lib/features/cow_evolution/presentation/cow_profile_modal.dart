@@ -147,18 +147,27 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: _toggleRecording,
-                      icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic_none),
-                      label: Text(_isRecording ? 'Stopp' : 'Aufnehmen'),
+                    // Expanded statt der Buttons direkt in der Row: siehe
+                    // README-Eintrag zum Layout-Crash bei ElevatedButton/
+                    // OutlinedButton in einer Row (unendliche Mindestbreite
+                    // aus dem Button-Theme) – exakt dasselbe Muster war
+                    // hier die Ursache für den schwarzen Profil-Screen.
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _toggleRecording,
+                        icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic_none),
+                        label: Text(_isRecording ? 'Stopp' : 'Aufnehmen'),
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Noch kein Memo aufgenommen.')),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Noch kein Memo aufgenommen.')),
+                        ),
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Abspielen'),
                       ),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Abspielen'),
                     ),
                   ],
                 ),

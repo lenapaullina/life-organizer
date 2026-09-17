@@ -150,6 +150,11 @@ class ThemeAndShopScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: AppSpacing.lg),
               Text('Weiden-Boden & Zaun', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                'Die drei Kuh-Muster füllen als Boden die ganze Weide aus.',
+                style: TextStyle(fontSize: 12),
+              ),
               const SizedBox(height: AppSpacing.sm),
               for (final ground in pastureGrounds)
                 _ActivatableItemCard(
@@ -172,31 +177,6 @@ class ThemeAndShopScreen extends ConsumerWidget {
                   isActive: pasture.activeFenceId == fence.id,
                   onBuy: () => notifier.purchaseItem(fence.id, fence.price),
                   onActivate: () => notifier.setActiveFence(fence.id),
-                ),
-              const SizedBox(height: AppSpacing.lg),
-              Text('Fell-Muster', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: AppSpacing.xs),
-              const Text(
-                'Aktuell als Sammel-/Vorschau-Muster nutzbar – ein echtes Einfärben der '
-                'Kuh-Silhouette braucht die Basis-Kuh-Grafik, die noch nicht vorliegt.',
-                style: TextStyle(fontSize: 12),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final pattern in cowPatterns)
-                _UnlockOnlyCard(
-                  name: pattern.name,
-                  assetPath: pattern.assetPath,
-                  price: pattern.price,
-                  milk: pasture.milk,
-                  isUnlocked: pasture.isItemUnlocked(pattern.id, pattern.price),
-                  onBuy: () async {
-                    final ok = await notifier.purchaseItem(pattern.id, pattern.price);
-                    if (!ok && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Noch nicht genug Kuh-Milch dafür.')),
-                      );
-                    }
-                  },
                 ),
             ],
           );

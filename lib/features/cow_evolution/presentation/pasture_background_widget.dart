@@ -57,17 +57,34 @@ class PastureBackgroundWidget extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         // Zaun-Streifen: rein dekorativ, keine eigene Interaktion.
+        //
+        // Bewusst NICHT BoxFit.cover auf das ganze (sehr viel breitere
+        // als hohe) Zaun-Bild: cover skaliert dabei so stark hoch, dass
+        // am Ende nur ein winziger, riesig wirkender Ausschnitt sichtbar
+        // ist ("Zäune viel zu groß"). Stattdessen wird das Bild auf die
+        // Streifenhöhe herunterskaliert (fitHeight, Seitenverhältnis
+        // bleibt erhalten) und dann mehrfach nebeneinander wiederholt
+        // (repeatX) – so bleiben die einzelnen Zaunpfosten klein und
+        // erkennbar, wie ein echter durchlaufender Zaun.
         SizedBox(
           height: 36,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
-            child: SafeAssetImage(
-              assetPath: fence.assetPath,
-              fit: BoxFit.cover,
-              // `Icons.grid_view_outlined` statt eines Zaun-spezifischen
-              // Icons: garantiert im Kern-Icon-Set vorhanden (keine
-              // Abhängigkeit von einer bestimmten Material-Icons-Version).
-              placeholderIcon: Icons.grid_view_outlined,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+              color: Colors.black12, // sichtbar, falls das Bild mal fehlschlägt
+              image: DecorationImage(
+                image: AssetImage(fence.assetPath),
+                fit: BoxFit.fitHeight,
+                repeat: ImageRepeat.repeatX,
+                // Fail-Safe: schlägt das Bild fehl, wird der Fehler nur
+                // geloggt statt die App abstürzen zu lassen (DecorationImage
+                // hat kein `errorBuilder` wie Image.asset, siehe
+                // SafeAssetImage in cow_asset_registry.dart für die
+                // Image.asset-Variante der Fail-Safe-Pipeline).
+                onError: (error, stackTrace) {
+                  debugPrint('Zaun-Bild konnte nicht geladen werden: $error');
+                },
+              ),
             ),
           ),
         ),

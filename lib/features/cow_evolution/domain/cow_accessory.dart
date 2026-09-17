@@ -95,18 +95,61 @@ CowDecorationItem? cowDecorationById(String? id) {
   return null;
 }
 
-/// Bodentextur der Weide.
+/// Bodentextur der Weide. `assetPath` ist bewusst explizit statt aus der
+/// ID abgeleitet: die drei Muster-Böden unten liegen (historisch bedingt,
+/// aus den ursprünglichen "design"-Dateien) im `cow_patterns`-Ordner,
+/// nicht im `pasture`-Ordner – so kann ein Ground-Item auf jeden
+/// Asset-Ordner zeigen, ohne dass Dateien verschoben werden müssen.
 class PastureGroundItem {
   final String id;
   final String name;
   final int price;
-  const PastureGroundItem({required this.id, required this.name, required this.price});
-  String get assetPath => CowAssetRegistry.pasturePath(id);
+  final String assetPath;
+  const PastureGroundItem({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.assetPath,
+  });
 }
 
 const pastureGrounds = <PastureGroundItem>[
-  PastureGroundItem(id: 'ground_wiese', name: 'Blumenwiese', price: 0), // Standard, ab Start freigeschaltet
-  PastureGroundItem(id: 'ground_space', name: 'Neon-Grid (Space)', price: 200),
+  // Standard, ab Start freigeschaltet.
+  PastureGroundItem(
+    id: 'ground_wiese',
+    name: 'Blumenwiese',
+    price: 0,
+    assetPath: 'assets/images/pasture/ground_wiese.png',
+  ),
+  PastureGroundItem(
+    id: 'ground_space',
+    name: 'Neon-Grid (Space)',
+    price: 200,
+    assetPath: 'assets/images/pasture/ground_space.png',
+  ),
+  // Die drei "Kuh-Muster" aus der Anfrage füllen als Boden die GANZE
+  // Weide (BoxFit.cover in PastureBackgroundWidget) statt nur eine
+  // kleine Vorschau-Kachel im Shop zu sein – eine echte Einfärbung der
+  // Kuh-Silhouette selbst bräuchte weiterhin die noch fehlende
+  // `base_cow.png` als Maske (siehe decorated_cow_widget.dart).
+  PastureGroundItem(
+    id: 'pattern_milka',
+    name: 'Milka-Lila-Weide',
+    price: 120,
+    assetPath: 'assets/images/cow_patterns/pattern_milka.png',
+  ),
+  PastureGroundItem(
+    id: 'pattern_giraffe',
+    name: 'Giraffen-Gold-Weide',
+    price: 180,
+    assetPath: 'assets/images/cow_patterns/pattern_giraffe.png',
+  ),
+  PastureGroundItem(
+    id: 'pattern_neon',
+    name: 'Neon-Fleck-Weide',
+    price: 280,
+    assetPath: 'assets/images/cow_patterns/pattern_neon.png',
+  ),
 ];
 
 PastureGroundItem groundById(String? id) {
@@ -134,30 +177,4 @@ PastureFenceItem fenceById(String? id) {
     if (f.id == id) return f;
   }
   return pastureFences.first;
-}
-
-/// Fell-/Farbmuster ("Kuh-Farbe") – aktuell als auswählbares
-/// Vorschau-Muster im Shop nutzbar. Ein echtes Einfärben der Kuh-Silhouette
-/// braucht eine Maske aus `base_cow.png` (siehe Scoping-Hinweis in
-/// `decorated_cow_widget.dart`) und ist bewusst noch nicht verdrahtet.
-class CowPatternItem {
-  final String id;
-  final String name;
-  final int price;
-  const CowPatternItem({required this.id, required this.name, required this.price});
-  String get assetPath => CowAssetRegistry.patternPath(id);
-}
-
-const cowPatterns = <CowPatternItem>[
-  CowPatternItem(id: 'pattern_milka', name: 'Milka-Lila', price: 120),
-  CowPatternItem(id: 'pattern_giraffe', name: 'Giraffen-Gold', price: 180),
-  CowPatternItem(id: 'pattern_neon', name: 'Neon-Fleck', price: 280),
-];
-
-CowPatternItem? patternById(String? id) {
-  if (id == null) return null;
-  for (final p in cowPatterns) {
-    if (p.id == id) return p;
-  }
-  return null;
 }

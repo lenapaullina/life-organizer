@@ -1,13 +1,21 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/storage/json_object_store.dart';
 import '../domain/cow.dart';
+import '../domain/cow_character.dart';
 
-/// Feste Rastergröße der Weide (4x4) – der begrenzte Platz ist
-/// bewusst so gewählt: er zwingt zum Mergen statt endlos neue
-/// Level-1-Kühe anzuhäufen, und bleibt auf einem Handy-Bildschirm
-/// ohne Scrollen komplett sichtbar.
+/// Feste Rastergröße der Weide (4x4) – der begrenzte Platz ist bewusst
+/// so gewählt: er zwingt zum Mergen statt endlos neue Level-1-Kühe
+/// anzuhäufen, und bleibt auf einem Handy-Bildschirm ohne Scrollen
+/// komplett sichtbar.
 const cowPastureGridSize = 16;
+
+/// Anzahl der festen Deko-Slots auf der Weide (siehe
+/// `pasture_background_widget.dart`) – bewusst ein Slot-System statt
+/// freiem Canvas-Dragging, um den Aufwand schlank zu halten.
+const cowDecorationSlotCount = 6;
 
 /// Wie viel Milch eine fertig abgeschlossene Routine bzw. eine
 /// erledigte Haushaltsaufgabe direkt bringt (zusätzlich zum
@@ -34,6 +42,8 @@ double passiveMilkPerMinute(List<Cow> cows) {
 const autoMergeUpgradeId = 'auto_merge';
 const autoMergeUpgradePrice = 300;
 
+final _random = Random();
+
 /// Ergebnis von [CowPastureNotifier.awardSuccess] – die UI zeigt bei
 /// [pastureFull] einen Hinweis ("Weide voll! Merge deine Kühe!"),
 /// statt die neue Kuh stillschweigend verschwinden zu lassen.
@@ -47,6 +57,18 @@ class CowPastureState {
   final String? activeStyleId;
   final DateTime lastCollectedAt;
 
+  /// Generischer Freischalt-Topf für Accessoires/Deko/Muster/Weiden-
+  /// Themes (siehe cow_accessory.dart) – ein Item mit Preis 0 (z. B.
+  /// die Standard-Weide) gilt immer als freigeschaltet, ohne hier
+  /// aufgeführt sein zu müssen (siehe `isItemUnlocked`).
+  final List<String> unlockedItemIds;
+  final String activeGroundId;
+  final String activeFenceId;
+
+  /// IDs der Deko-Objekte je festem Weiden-Slot (siehe
+  /// `cowDecorationSlotCount`); `null` = Slot ist leer.
+  final List<String?> decorationSlots;
+
   const CowPastureState({
     required this.cows,
     required this.milk,
@@ -54,9 +76,15 @@ class CowPastureState {
     required this.unlockedUpgradeIds,
     required this.activeStyleId,
     required this.lastCollectedAt,
+    this.unlockedItemIds = const [],
+    this.activeGroundId = 'ground_wiese',
+    this.activeFenceId = 'fence_wood',
+    this.decorationSlots = const [null, null, null, null, null, null],
   });
 
   bool get hasAutoMerge => unlockedUpgradeIds.contains(autoMergeUpgradeId);
+
+  bool isItemUnlocked(String id, int price) => price <= 0 || unlockedItemIds.contains(id);
 
   factory CowPastureState.initial() => CowPastureState(
         cows: const [],
@@ -75,6 +103,10 @@ class CowPastureState {
     String? activeStyleId,
     bool clearActiveStyle = false,
     DateTime? lastCollectedAt,
+    List<String>? unlockedItemIds,
+    String? activeGroundId,
+    String? activeFenceId,
+    List<String?>? decorationSlots,
   }) {
     return CowPastureState(
       cows: cows ?? this.cows,
@@ -83,6 +115,10 @@ class CowPastureState {
       unlockedUpgradeIds: unlockedUpgradeIds ?? this.unlockedUpgradeIds,
       activeStyleId: clearActiveStyle ? null : (activeStyleId ?? this.activeStyleId),
       lastCollectedAt: lastCollectedAt ?? this.lastCollectedAt,
+      unlockedItemIds: unlockedItemIds ?? this.unlockedItemIds,
+      activeGroundId: activeGroundId ?? this.activeGroundId,
+      activeFenceId: activeFenceId ?? this.activeFenceId,
+      decorationSlots: decorationSlots ?? this.decorationSlots,
     );
   }
 
@@ -93,11 +129,25 @@ class CowPastureState {
         'unlockedUpgradeIds': unlockedUpgradeIds,
         'activeStyleId': activeStyleId,
         'lastCollectedAt': lastCollectedAt.toIso8601String(),
+        'unlockedItemIds': unlockedItemIds,
+        'activeGroundId': activeGroundId,
+        'activeFenceId': activeFenceId,
+        'decorationSlots': decorationSlots,
       };
 
   factory CowPastureState.fromJson(Map<String, dynamic> json) {
     if (json.isEmpty) return CowPastureState.initial();
     try {
+      final rawSlots = (json['decorationSlots'] as List?)
+              ?.map((e) => e as String?)
+              .toList() ??
+          List<String?>.filled(cowDecorationSlotCount, null);
+      // Auf feste Länge bringen, falls sich cowDecorationSlotCount mal ändert.
+      final slots = List<String?>.filled(cowDecorationSlotCount, null);
+      for (var i = 0; i < rawSlots.length && i < slots.length; i++) {
+        slots[i] = rawSlots[i];
+      }
+
       return CowPastureState(
         cows: (json['cows'] as List? ?? [])
             .map((c) => Cow.fromJson(c as Map<String, dynamic>))
@@ -108,6 +158,10 @@ class CowPastureState {
         activeStyleId: json['activeStyleId'] as String?,
         lastCollectedAt:
             DateTime.tryParse(json['lastCollectedAt'] as String? ?? '') ?? DateTime.now(),
+        unlockedItemIds: (json['unlockedItemIds'] as List? ?? []).cast<String>(),
+        activeGroundId: json['activeGroundId'] as String? ?? 'ground_wiese',
+        activeFenceId: json['activeFenceId'] as String? ?? 'fence_wood',
+        decorationSlots: slots,
       );
     } catch (_) {
       return CowPastureState.initial();
@@ -141,6 +195,9 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
     await _store.write(value.toJson());
   }
 
+  CowCharacterType _randomCharacterType() =>
+      cowCharacterTypes[_random.nextInt(cowCharacterTypes.length)];
+
   CowPastureState _collectPassiveMilk(CowPastureState s) {
     final elapsed = DateTime.now().difference(s.lastCollectedAt);
     final cappedHours = elapsed.inMinutes / 60.0;
@@ -170,12 +227,15 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
   }
 
   /// Erfolg (Haushaltsaufgabe erledigt / Routine komplett) -> Milch
-  /// direkt + neue Level-1-Kuh, falls noch Platz auf der Weide ist.
-  /// Ist die Weide voll, gibt's trotzdem die Milch, nur keine neue Kuh
-  /// (Anreiz zum Mergen, nicht Bestrafung fürs Erledigen) – die UI
-  /// bekommt das über den Rückgabewert mit, um z. B. "Weide voll!
-  /// Merge deine Kühe!" anzuzeigen.
-  Future<CowSpawnResult> awardSuccess({required int milk}) async {
+  /// direkt + neue Level-1-Kuh (mit zufälligem Charakter), falls noch
+  /// Platz auf der Weide ist. Ist die Weide voll, gibt's trotzdem die
+  /// Milch, nur keine neue Kuh (Anreiz zum Mergen, nicht Bestrafung
+  /// fürs Erledigen) – die UI bekommt das über den Rückgabewert mit,
+  /// um z. B. "Weide voll! Merge deine Kühe!" anzuzeigen.
+  ///
+  /// [originLabel] ist der Name der Aufgabe/Routine, die den Spawn
+  /// ausgelöst hat – landet im Kuh-Profil als "Ursprungs-Task".
+  Future<CowSpawnResult> awardSuccess({required int milk, String? originLabel}) async {
     final current = state.valueOrNull;
     if (current == null) return CowSpawnResult.pastureFull;
 
@@ -185,7 +245,14 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
     if (freePos != null) {
       cows = [
         ...cows,
-        Cow(id: _newId(), level: 1, position: freePos),
+        Cow(
+          id: _newId(),
+          level: 1,
+          position: freePos,
+          characterTypeId: _randomCharacterType().id,
+          createdAt: DateTime.now(),
+          originLabel: originLabel,
+        ),
       ];
     }
 
@@ -199,6 +266,9 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
   /// Zwei gleich-levelige Kühe verschmelzen zu einer Kuh mit Level+1,
   /// an der Position der zuerst ausgewählten Kuh (die andere Position
   /// wird frei). Bringt zusätzlich einen Level-abhängigen Milch-Bonus.
+  /// Die gemergte Kuh bekommt einen neu gewürfelten Charakter (die
+  /// beiden Ursprungskühe hatten ggf. unterschiedliche) und verliert
+  /// ihre bisherigen Accessoires (neue "Identität").
   Future<bool> mergeCows(String idA, String idB) async {
     final current = state.valueOrNull;
     if (current == null || idA == idB) return false;
@@ -209,7 +279,14 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
 
     final newLevel = cowA.level + 1;
     final bonus = newLevel * 10;
-    final merged = Cow(id: _newId(), level: newLevel, position: cowA.position);
+    final merged = Cow(
+      id: _newId(),
+      level: newLevel,
+      position: cowA.position,
+      characterTypeId: _randomCharacterType().id,
+      createdAt: DateTime.now(),
+      originLabel: 'Gemergt aus zwei Level-$newLevel-1-Kühen',
+    );
 
     final remaining = current.cows.where((c) => c.id != idA && c.id != idB).toList()
       ..add(merged);
@@ -263,6 +340,82 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
     return true;
   }
 
+  /// Generischer Freischalt-Kauf für Accessoires/Deko/Muster/Weiden-
+  /// Themes (siehe cow_accessory.dart) – ein Item mit Preis 0 ist
+  /// automatisch freigeschaltet und braucht diesen Aufruf nicht.
+  Future<bool> purchaseItem(String id, int price) async {
+    final current = state.valueOrNull;
+    if (current == null) return false;
+    if (current.isItemUnlocked(id, price)) return true;
+    if (current.milk < price) return false;
+
+    await _persist(current.copyWith(
+      milk: current.milk - price,
+      unlockedItemIds: [...current.unlockedItemIds, id],
+    ));
+    return true;
+  }
+
+  Future<void> setActiveGround(String groundId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _persist(current.copyWith(activeGroundId: groundId));
+  }
+
+  Future<void> setActiveFence(String fenceId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _persist(current.copyWith(activeFenceId: fenceId));
+  }
+
+  /// Legt ein Deko-Objekt in einen festen Weiden-Slot (siehe
+  /// [cowDecorationSlotCount]) oder leert ihn (`decorationId = null`).
+  Future<void> placeDecoration(int slotIndex, String? decorationId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (slotIndex < 0 || slotIndex >= current.decorationSlots.length) return;
+    final slots = List<String?>.from(current.decorationSlots);
+    slots[slotIndex] = decorationId;
+    await _persist(current.copyWith(decorationSlots: slots));
+  }
+
+  /// Rüstet ein Accessoire an einer bestimmten Kuh aus/ab (Toggle).
+  /// Mehrere Accessoires im selben Slot sind bewusst erlaubt (keine
+  /// Slot-Exklusivität) – einfacher zu verstehen als eine Regel wie
+  /// "nur ein Hut gleichzeitig", und optisch verzeihend, weil die
+  /// Positionierung ohnehin nur eine Annäherung ist (siehe
+  /// `decorated_cow_widget.dart`).
+  Future<void> toggleAccessory(String cowId, String accessoryId) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final cows = current.cows.map((c) {
+      if (c.id != cowId) return c;
+      final equipped = List<String>.from(c.equippedAccessoryIds);
+      if (equipped.contains(accessoryId)) {
+        equipped.remove(accessoryId);
+      } else {
+        equipped.add(accessoryId);
+      }
+      return c.copyWith(equippedAccessoryIds: equipped);
+    }).toList();
+    await _persist(current.copyWith(cows: cows));
+  }
+
+  /// Benennt eine Kuh um (`name = null` -> zurück zum Charakter-Namen).
+  Future<void> renameCow(String cowId, String? name) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final trimmed = name?.trim();
+    final cows = current.cows.map((c) {
+      if (c.id != cowId) return c;
+      return c.copyWith(
+        customName: (trimmed == null || trimmed.isEmpty) ? null : trimmed,
+        clearCustomName: trimmed == null || trimmed.isEmpty,
+      );
+    }).toList();
+    await _persist(current.copyWith(cows: cows));
+  }
+
   /// "Sortieren & Mergen": merged automatisch so lange gleich-levelige
   /// Kuh-Paare, bis keine mehr übrig sind. Läuft in einem Rutsch
   /// (eine einzige Persistierung am Ende), damit die Weide nicht
@@ -289,7 +442,14 @@ class CowPastureNotifier extends StateNotifier<AsyncValue<CowPastureState>> {
         final a = levelCows[0];
         final b = levelCows[1];
         final newLevel = a.level + 1;
-        final merged = Cow(id: _newId(), level: newLevel, position: a.position);
+        final merged = Cow(
+          id: _newId(),
+          level: newLevel,
+          position: a.position,
+          characterTypeId: _randomCharacterType().id,
+          createdAt: DateTime.now(),
+          originLabel: 'Auto-Merge (Level $newLevel)',
+        );
         cows = [
           for (final c in cows)
             if (c.id != a.id && c.id != b.id) c,

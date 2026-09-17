@@ -244,8 +244,9 @@ class _TaskCard extends ConsumerWidget {
 
     // Kuh-Evolution: jede erledigte Aufgabe bringt direkt Milch und,
     // falls noch Platz auf der Weide ist, eine neue Level-1-Kuh.
-    final spawnResult =
-        await ref.read(cowPastureProvider.notifier).awardSuccess(milk: milkPerHouseholdTask);
+    final spawnResult = await ref
+        .read(cowPastureProvider.notifier)
+        .awardSuccess(milk: milkPerHouseholdTask, originLabel: taskName);
 
     hapticTaskComplete();
     final soundEnabled = ref.read(appSettingsProvider).soundEnabled;

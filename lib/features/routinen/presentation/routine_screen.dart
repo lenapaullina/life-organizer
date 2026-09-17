@@ -63,7 +63,7 @@ class RoutineScreen extends ConsumerWidget {
                       if (fullyCompleted) {
                         final spawnResult = await ref
                             .read(cowPastureProvider.notifier)
-                            .awardSuccess(milk: milkPerFullRoutine);
+                            .awardSuccess(milk: milkPerFullRoutine, originLabel: routine.name);
 
                         final soundEnabled = ref.read(appSettingsProvider).soundEnabled;
                         maybePlaySound(soundEnabled, SoundEvent.taskComplete);

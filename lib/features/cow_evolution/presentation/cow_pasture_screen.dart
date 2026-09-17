@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/assets/cow_asset_registry.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../settings/application/app_settings_providers.dart';
 import '../application/cow_pasture_providers.dart';
 import '../domain/cow.dart';
+import '../domain/cow_accessory.dart';
+import 'cow_profile_modal.dart';
+import 'pasture_background_widget.dart';
 
 /// Interaktive Weide: Kühe erscheinen als Belohnung fürs Erledigen
 /// von Aufgaben/Routinen (siehe household_screen.dart, routine_screen.dart).
@@ -128,12 +132,18 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                 Text(
                   pasture.cows.isEmpty
                       ? 'Noch keine Kühe – erledige Aufgaben, um welche zu bekommen.'
-                      : 'Ziehe eine Kuh auf eine gleich-levelige, oder tippe zwei nacheinander an, um sie zu verschmelzen.',
+                      : 'Ziehe eine Kuh auf eine gleich-levelige, tippe zwei nacheinander an, '
+                          'um sie zu verschmelzen, oder halte eine Kuh gedrückt fürs Profil.',
                   style: const TextStyle(fontSize: 13),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
-                  child: GridView.builder(
+                  child: PastureBackgroundWidget(
+                    groundId: pasture.activeGroundId,
+                    fenceId: pasture.activeFenceId,
+                    decorationSlots: pasture.decorationSlots,
+                    onSlotTap: (slot) => _pickDecoration(slot, pasture.decorationSlots[slot]),
+                    child: GridView.builder(
                     itemCount: cowPastureGridSize,
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
@@ -158,6 +168,11 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                             dimmed: dimmed,
                             hovering: candidates.isNotEmpty,
                             onTap: cow == null ? null : () => _onTapCow(cow),
+                            // Langes Drücken statt normalem Tippen fürs
+                            // Profil, damit der bestehende
+                            // Antippen-zum-Mergen-Ablauf unangetastet bleibt.
+                            onLongPress:
+                                cow == null ? null : () => showCowProfileModal(context, cow.id),
                           );
                           if (cow == null) return cell;
                           return Draggable<Cow>(
@@ -167,7 +182,15 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                               child: SizedBox(
                                 width: 72,
                                 height: 72,
-                                child: _PastureCell(cow: cow, selected: false, highlighted: true, dimmed: false, hovering: false, onTap: null),
+                                child: _PastureCell(
+                                  cow: cow,
+                                  selected: false,
+                                  highlighted: true,
+                                  dimmed: false,
+                                  hovering: false,
+                                  onTap: null,
+                                  onLongPress: null,
+                                ),
                               ),
                             ),
                             childWhenDragging: Opacity(opacity: 0.3, child: cell),
@@ -179,6 +202,7 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                         },
                       );
                     },
+                    ),
                   ),
                 ),
               ],
@@ -187,6 +211,54 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _pickDecoration(int slotIndex, String? currentId) async {
+    final pasture = ref.read(cowPastureProvider).valueOrNull;
+    if (pasture == null) return;
+    final notifier = ref.read(cowPastureProvider.notifier);
+
+    final ownedDecorations =
+        cowDecorations.where((d) => pasture.isItemUnlocked(d.id, d.price)).toList();
+
+    final chosen = await showModalBottomSheet<String?>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.clear),
+                title: const Text('Slot leeren'),
+                // Leerer String statt `null` als Rückgabewert: `null`
+                // bedeutet hier "Sheet weggewischt, nichts ändern" (siehe
+                // unten), ein echtes "leeren" braucht also einen eigenen,
+                // von `null` unterscheidbaren Wert.
+                onTap: () => Navigator.of(context).pop(''),
+              ),
+              if (ownedDecorations.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(AppSpacing.md),
+                  child: Text('Noch keine Deko freigeschaltet – im Milch-Shop erhältlich.'),
+                )
+              else
+                for (final deco in ownedDecorations)
+                  ListTile(
+                    leading: SafeAssetImage(assetPath: deco.assetPath, width: 32, height: 32),
+                    title: Text(deco.name),
+                    onTap: () => Navigator.of(context).pop(deco.id),
+                  ),
+            ],
+          ),
+        );
+      },
+    );
+
+    // `null` = Sheet weggewischt/zurück -> nichts ändern. Leerer String
+    // = "Slot leeren" bewusst angetippt -> Slot wird geleert.
+    if (!mounted || chosen == null) return;
+    await notifier.placeDecoration(slotIndex, chosen.isEmpty ? null : chosen);
   }
 }
 
@@ -197,6 +269,7 @@ class _PastureCell extends StatelessWidget {
   final bool dimmed;
   final bool hovering;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const _PastureCell({
     required this.cow,
@@ -205,6 +278,7 @@ class _PastureCell extends StatelessWidget {
     required this.dimmed,
     required this.hovering,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -222,6 +296,7 @@ class _PastureCell extends StatelessWidget {
       opacity: dimmed ? 0.35 : 1,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),

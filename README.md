@@ -787,3 +787,72 @@ außerhalb des reinen Debug-Overlays). Fix: beide Buttons in
 `Flexible(...)` eingepackt, damit die umgebende `Row` ihnen eine
 begrenzte statt unendliche Breite vorgibt. Ein Scan über den Rest der
 App fand keine weiteren Stellen mit demselben Muster.
+
+**Echte Bild-Assets für Kühe/Zubehör/Deko/Weide (Underground-Comic-
+Stil).** Ersetzt das bisherige Emoji-/Farbflächen-System teilweise
+durch Lenas eigene, handgezeichnete PNGs:
+
+- `core/assets/cow_asset_registry.dart`: zentrale Pfad-Verwaltung für
+  Charakterkarten (`assets/images/cards/`), Accessoires
+  (`assets/images/accessories/`), Deko (`assets/images/decorations/`),
+  Weiden-Themes (`assets/images/pasture/`) und Fell-Muster
+  (`assets/images/cow_patterns/`), plus `SafeAssetImage` – lädt ein
+  Asset über `Image.asset` mit `errorBuilder`, zeigt bei fehlendem/
+  kaputtem Pfad sauber ein Platzhalter-Icon statt die App abstürzen zu
+  lassen (Fail-Safe-Pipeline aus der Anfrage).
+- `cow_evolution/domain/cow_character.dart` + `cow_accessory.dart`:
+  Datenmodelle für die 6 fertigen Kuh-Charaktere (Chiller/Raver/
+  Street/Diva/Hippie/Boss – aus den gelieferten Kuh-Assets benannt),
+  9 Accessoires, 6 Deko-Objekte, 2 Boden-Themes, 1 Zaun-Theme, 3
+  Fell-Muster, jeweils mit Preis.
+- `shared/widgets/decorated_cow_widget.dart`: das angefragte
+  Stack-Overlay-Widget (Basis-Kuh + Accessoire-PNGs an
+  prozentualen Positionen). **Scoping-Hinweis:** Es gibt noch KEIN
+  `assets/images/cows/base_cow.png` (die "nackte" Basis-Kuh zeichnest
+  du ja noch) – bis dahin zeigt die Fail-Safe-Pipeline dort einen
+  Platzhalter. Die 6 gelieferten Charakterkarten sind fertige
+  Einzel-Artworks (Kuh + Outfit + Namensschild in einem Bild) und
+  laufen NICHT durch dieses Overlay-System, sondern werden 1:1 im
+  Kuh-Profil gezeigt.
+- `cow_evolution/presentation/cow_profile_modal.dart`: Kuh-Profil als
+  Bottom-Sheet (langes Drücken auf eine Kuh auf der Weide) – große
+  Charakterkarte, editierbarer Name, Entstehungsdatum, Ursprungs-Task
+  (Name der auslösenden Aufgabe/Routine), Accessoire-Ausrüstung per
+  Chip-Auswahl. Sprachmemo-Aufnahme/Wiedergabe ist als UI vorbereitet,
+  aber (wie die Sound-Effekte) noch ohne echtes Audio-Paket verdrahtet
+  (kein Netzwerkzugriff auf pub.dev zum Prüfen).
+- `cow_evolution/presentation/pasture_background_widget.dart`: die
+  Weide zeigt jetzt eine wechselbare Bodentextur + einen Zaun-Streifen
+  + 6 feste Deko-Slots (antippen -> Auswahl-Sheet aus freigeschalteter
+  Deko) statt freiem Canvas-Dragging, wie in der Anfrage
+  vorgeschlagen.
+- Milch-Shop (`theme_and_shop_screen.dart`) um vier neue Kategorien
+  erweitert: Kuh-Accessoires, Weiden-Deko, Weiden-Boden & Zaun,
+  Fell-Muster – alle über einen neuen generischen Freischalt-Kauf
+  (`CowPastureNotifier.purchaseItem`) statt je eigener Sonderliste.
+- `Cow` (Domain-Modell) um `characterTypeId` (zufällig beim Spawn/
+  Merge gewürfelt), `customName`, `createdAt`, `originLabel` und
+  `equippedAccessoryIds` erweitert – abwärtskompatibel (ältere,
+  gespeicherte Kühe ohne diese Felder bekommen sinnvolle Fallbacks).
+
+**Bewusst NICHT umgesetzt / vereinfacht (Transparenz wie immer):**
+- `assets/images/cows/base_cow.png` fehlt noch – das
+  Accessoire-Overlay-System ist voll funktionsfähig verdrahtet, zeigt
+  bis dahin aber nur den Platzhalter der Fail-Safe-Pipeline.
+- Die Positionswerte der Accessoires (`AccessoryPlacement` in
+  `cow_accessory.dart`) sind plausible Startwerte, keine pixelgenaue
+  Kalibrierung – die braucht das echte `base_cow.png`, um sinnvoll
+  einjustiert zu werden.
+- Fell-Muster sind aktuell reine Freischalt-/Sammel-Items ohne echte
+  Anwendung auf eine Kuh-Silhouette (dafür fehlt die Maske aus
+  `base_cow.png`).
+- Sprachmemo-Aufnahme/Wiedergabe: nur UI, kein echtes Audio-Paket
+  (gleiche Einschränkung wie die Sound-Effekte).
+- Eine deiner gelieferten Dateien (`dekozaun-asset.png`) enthielt aus
+  Versehen das komplette Referenzblatt statt nur des Zauns – ich habe
+  Sonnenbrille, Partyhut, Zaun, Heuballen und Eimer daraus
+  automatisch freigeschnitten (transparenter Hintergrund erhalten),
+  damit nichts verloren geht. Falls du diese Datei nochmal sauber
+  exportierst, kannst du die entsprechenden Dateien unter
+  `assets/images/accessories/` bzw. `assets/images/pasture/` und
+  `assets/images/decorations/` einfach ersetzen.

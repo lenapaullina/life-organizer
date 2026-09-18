@@ -192,25 +192,32 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Festes Seitenverhältnis statt fester Höhe:
-                              // die Karte bleibt so immer proportional und
-                              // kann nie über den verfügbaren Platz hinaus
-                              // ragen (Ursache des früheren Overflow-Bugs).
-                              AspectRatio(
-                                aspectRatio: 3 / 4,
-                                child: Container(
-                                  clipBehavior: Clip.antiAlias,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                                    border: Border.all(color: glow, width: 2),
-                                    boxShadow: [
-                                      BoxShadow(color: glow.withOpacity(0.45), blurRadius: 16),
-                                    ],
-                                  ),
-                                  child: SafeAssetImage(
-                                    assetPath: cow.characterType.cardAssetPath,
-                                    fit: BoxFit.cover,
-                                    placeholderIcon: Icons.grass_outlined,
+                              // Feste Höhe statt AspectRatio + `Center` +
+                              // `BoxFit.contain` (statt `cover`): garantiert,
+                              // dass das komplette Kartenbild sichtbar und
+                              // zentriert bleibt, egal welches Seiten-
+                              // verhältnis das PNG tatsächlich hat – `cover`
+                              // konnte je nach Bildformat oben/links
+                              // anschneiden.
+                              Container(
+                                width: double.infinity,
+                                height: 280,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2A1020),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: glow, width: 2), // Y2K-Glow-Rand
+                                  boxShadow: [
+                                    BoxShadow(color: glow.withOpacity(0.45), blurRadius: 16),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: SafeAssetImage(
+                                      assetPath: cow.characterType.cardAssetPath,
+                                      fit: BoxFit.contain, // zeigt das ganze Bild ohne Anschnitt
+                                      placeholderIcon: Icons.grass_outlined,
+                                    ),
                                   ),
                                 ),
                               ),

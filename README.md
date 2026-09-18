@@ -1070,3 +1070,12 @@ mehr zwingend deckten. Fix, exakt nach Lenas Code-Vorgabe umgesetzt:
 - Level-Badge als `Positioned(bottom: 4, ...)` ohne `left`/`right` –
   wird dadurch automatisch über die `Stack`-`alignment` horizontal
   zentriert, statt wie zuvor in einer Extra-Zeile der Column zu sitzen.
+
+**Kuh-Profil: Karten-Vorschau auf feste Höhe statt AspectRatio + `cover`.**
+Lena meldete, dass das Kartenbild im Profil-Modal oben links abgeschnitten
+klebt. Die `AspectRatio(3/4)`+`BoxFit.cover`-Vorschau aus der letzten
+Runde ist einer festen `Container(height: 280)`-Box mit `Center` +
+`Padding` + `BoxFit.contain` gewichen: dadurch ist immer das komplette
+Kartenbild sichtbar und zentriert, unabhängig vom tatsächlichen
+Seitenverhältnis des jeweiligen PNGs (das vorher bei `cover` je nach
+Format zu einem Anschnitt oben/links führen konnte).

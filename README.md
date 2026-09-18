@@ -1047,3 +1047,26 @@ strikter umgesetzt:
    das Bild kann so nicht mehr über den Kachelrand hinausragen oder
    verzerrt wirken. Die Level-Anzeige sitzt sauber unterhalb des
    Bildes statt als frei schwebendes Overlay in der Ecke.
+
+**Zweite Nachbesserung: Kachel-Skalierung erzwungen statt nur
+angenommen.** Auf dem Gerät blieb das Gras trotz `DecorationImage`
+winzig unten, und die Kuh-Artworks kamen extrem klein an. Ursache:
+`AnimatedContainer` hatte ein `alignment: Alignment.center` gesetzt –
+das gibt dem Kind-Widget intern LOSE statt straffe Constraints (über
+ein implizites `Align`), sodass sich Kachel-Inhalt und -Größe nicht
+mehr zwingend deckten. Fix, exakt nach Lenas Code-Vorgabe umgesetzt:
+
+- `alignment` von `AnimatedContainer` entfernt und stattdessen
+  `clipBehavior: Clip.antiAlias` gesetzt – das Kind bekommt jetzt
+  straffe Constraints (füllt die Kachel garantiert exakt aus) und wird
+  sauber auf die abgerundeten Ecken zugeschnitten.
+- Kein eigenständiges Bild-Widget mehr lose im Child-Tree: die
+  Gras-Textur ist ausschließlich `BoxDecoration.image` der Kachel
+  selbst (`BoxFit.cover`), nie ein separates `Image`/`SafeAssetImage`.
+- Kuh-Artwork jetzt in `Positioned.fill` + `Padding(top: 8, left: 8,
+  right: 8, bottom: 24)` statt in einer `Column`/`Expanded`-Kette –
+  garantiert straffe Constraints fürs Bild, `BoxFit.contain` skaliert
+  es dadurch tatsächlich so groß wie möglich in die Kachel.
+- Level-Badge als `Positioned(bottom: 4, ...)` ohne `left`/`right` –
+  wird dadurch automatisch über die `Stack`-`alignment` horizontal
+  zentriert, statt wie zuvor in einer Extra-Zeile der Column zu sitzen.

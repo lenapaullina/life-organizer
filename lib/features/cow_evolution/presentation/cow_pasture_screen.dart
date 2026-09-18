@@ -357,6 +357,8 @@ class _PastureCell extends StatelessWidget {
     if (selected) borderColor = accent;
     if (highlighted || hovering) borderColor = Theme.of(context).colorScheme.secondary;
 
+    final hasCow = cow != null;
+
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 150),
       opacity: dimmed ? 0.35 : 1,
@@ -366,6 +368,9 @@ class _PastureCell extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
+          // Verhindert, dass Gras-/Zaun-Bild oder das Kuh-Artwork über
+          // die abgerundeten Ecken hinaus gezeichnet werden.
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             // Nur besetzte Kacheln bekommen die Gras-Textur als
             // Hintergrund; leere Kacheln bleiben beim normalen
@@ -373,51 +378,63 @@ class _PastureCell extends StatelessWidget {
             color: hovering ? accent.withOpacity(0.25) : baseColor,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(color: borderColor, width: 3),
-            image: cow == null
-                ? null
-                : DecorationImage(
+            image: hasCow
+                ? DecorationImage(
                     image: AssetImage(groundAssetPath),
+                    // Füllt die Kachel wirklich vollständig aus – kein
+                    // eigenständiges Bild-Widget mehr im Child-Tree, das
+                    // klein irgendwo hätte landen können.
                     fit: BoxFit.cover,
                     onError: (error, stackTrace) {
                       debugPrint('Boden-Bild (Kachel) konnte nicht geladen werden: $error');
                     },
-                  ),
+                  )
+                : null,
           ),
-          alignment: Alignment.center,
-          child: cow == null
-              ? null
-              : Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: SafeAssetImage(
-                            assetPath: cow!.characterType.cardAssetPath,
-                            fit: BoxFit.contain,
-                            placeholderIcon: Icons.pets,
-                          ),
+          // Bewusst KEIN `alignment` mehr hier: das gibt dem Kind (Stack)
+          // straffe statt lose Constraints, sodass der Stack die Kachel
+          // garantiert exakt ausfüllt statt sich an seinem Inhalt zu
+          // orientieren.
+          child: !hasCow
+              ? const SizedBox.shrink()
+              : Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 1. Kuh-Charakterbild, zentriert und so groß wie
+                    // möglich (BoxFit.contain) innerhalb eines festen
+                    // Innenabstands, der unten Platz fürs Level-Badge lässt.
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 8, right: 8, bottom: 24),
+                        child: SafeAssetImage(
+                          assetPath: cow!.characterType.cardAssetPath,
+                          fit: BoxFit.contain,
+                          placeholderIcon: Icons.pets,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    ),
+                    // 2. Level-Badge am unteren Rand, horizontal zentriert
+                    // (durch die fehlenden left/right-Werte übernimmt die
+                    // Stack-`alignment` oben die Zentrierung).
+                    Positioned(
+                      bottom: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(4),
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           'Lv. ${cow!.level}',
                           style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
                             color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
         ),
       ),

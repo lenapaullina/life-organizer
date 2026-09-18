@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/name_autocomplete_field.dart';
+import '../application/pantry_extra_providers.dart';
 import '../application/pantry_providers.dart';
+import '../application/pantry_template_providers.dart';
+import '../domain/pantry_template.dart';
 
 /// Presets tragen die typische Öffnungsfrist schon mit – das MHD
 /// selbst kann sich je nach Packung stark unterscheiden und muss
@@ -46,9 +50,20 @@ class _AddPantryItemSheet extends ConsumerStatefulWidget {
 class _AddPantryItemSheetState extends ConsumerState<_AddPantryItemSheet> {
   _PantryPreset? _selectedPreset;
   bool _customName = false;
-  final _nameController = TextEditingController();
+  String _name = '';
+  final _quantityController = TextEditingController();
+  final _cycleController = TextEditingController();
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 7));
   bool _alreadyOpened = false;
+  bool _saveAsTemplate = false;
+  int? _daysGoodAfterOpeningOverride;
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _cycleController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickExpiryDate() async {
     final picked = await showDatePicker(
@@ -61,22 +76,62 @@ class _AddPantryItemSheetState extends ConsumerState<_AddPantryItemSheet> {
     if (picked != null) setState(() => _expiryDate = picked);
   }
 
+  /// Übernimmt die Werte einer angetippten Vorlage (Autocomplete oder
+  /// gespeicherte Vorlage) automatisch als Vorbefüllung.
+  void _applyTemplate(PantryTemplate template) {
+    setState(() {
+      _daysGoodAfterOpeningOverride = template.daysGoodAfterOpening;
+      _cycleController.text = template.cycleDays?.toString() ?? '';
+    });
+  }
+
+  int? get _cycleDays {
+    final text = _cycleController.text.trim();
+    if (text.isEmpty) return null;
+    return int.tryParse(text);
+  }
+
   Future<void> _submit() async {
-    final name = _customName ? _nameController.text.trim() : _selectedPreset?.name;
+    final name = _customName ? _name.trim() : _selectedPreset?.name;
     if (name == null || name.isEmpty) return;
 
-    await ref.read(pantryRepositoryProvider).createItem(
+    final daysGoodAfterOpening =
+        _daysGoodAfterOpeningOverride ?? _selectedPreset?.daysGoodAfterOpening;
+
+    final createdId = await ref.read(pantryRepositoryProvider).createItemReturningId(
           name: name,
           expiryDate: _expiryDate,
-          daysGoodAfterOpening: _selectedPreset?.daysGoodAfterOpening,
+          daysGoodAfterOpening: daysGoodAfterOpening,
           openedAt: _alreadyOpened ? DateTime.now() : null,
         );
+
+    await ref.read(pantryExtraProvider.notifier).setExtra(
+          createdId,
+          quantity: _quantityController.text,
+          cycleDays: _cycleDays,
+        );
+
+    if (_customName && _saveAsTemplate) {
+      await ref.read(pantryTemplateProvider.notifier).saveTemplate(
+            name: name,
+            daysGoodAfterOpening: daysGoodAfterOpening,
+            cycleDays: _cycleDays,
+          );
+    }
+
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final dateLabel = '${_expiryDate.day}.${_expiryDate.month}.${_expiryDate.year}';
+    final templates = ref.watch(pantryTemplateProvider).valueOrNull ?? const [];
+    final suggestionNames = {
+      for (final p in _presets) p.name,
+      for (final t in templates) t.name,
+    }.toList()
+      ..sort();
+    final templateByName = {for (final t in templates) t.name: t};
 
     return Padding(
       padding: EdgeInsets.only(
@@ -113,12 +168,36 @@ class _AddPantryItemSheetState extends ConsumerState<_AddPantryItemSheet> {
               label: const Text('Eigenes Produkt eingeben'),
             ),
           ] else ...[
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Produktname'),
+            // Freitext mit Autovervollständigung: schlägt sowohl die
+            // festen Presets als auch selbst gespeicherte Vorlagen vor,
+            // freies Tippen bleibt aber jederzeit möglich.
+            NameAutocompleteField(
+              label: 'Produktname',
+              suggestions: suggestionNames,
+              onChanged: (value) => setState(() => _name = value),
+              onSuggestionSelected: (value) {
+                final template = templateByName[value];
+                if (template != null) _applyTemplate(template);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Als Vorlage speichern'),
+              subtitle: const Text('Dann beim nächsten Mal per Autovervollständigung wählbar'),
+              value: _saveAsTemplate,
+              onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
             ),
           ],
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _quantityController,
+            decoration: const InputDecoration(
+              labelText: 'Menge (optional)',
+              hintText: 'z. B. 2 Stück, 1L, 500g',
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -127,11 +206,23 @@ class _AddPantryItemSheetState extends ConsumerState<_AddPantryItemSheet> {
             trailing: const Icon(Icons.calendar_today_outlined),
             onTap: _pickExpiryDate,
           ),
-          if (_selectedPreset?.daysGoodAfterOpening != null)
+          const SizedBox(height: AppSpacing.md),
+          // Zyklus/Intervall als Zahlenfeld statt Slider – exakte
+          // Werte lassen sich so viel schneller eintippen.
+          TextField(
+            controller: _cycleController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Nachkauf-Zyklus in Tagen (optional)',
+              hintText: 'z. B. 14',
+            ),
+          ),
+          if ((_daysGoodAfterOpeningOverride ?? _selectedPreset?.daysGoodAfterOpening) != null)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Bereits geöffnet'),
-              subtitle: Text('Hält dann ${_selectedPreset!.daysGoodAfterOpening} Tage ab heute'),
+              subtitle: Text(
+                  'Hält dann ${_daysGoodAfterOpeningOverride ?? _selectedPreset!.daysGoodAfterOpening} Tage ab heute'),
               value: _alreadyOpened,
               onChanged: (v) => setState(() => _alreadyOpened = v),
             ),

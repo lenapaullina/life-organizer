@@ -11,60 +11,50 @@ Future<void> showEditHouseholdTaskDialog(
   HouseholdTask task,
 ) {
   final nameController = TextEditingController(text: task.name);
-  var interval = task.intervalDays;
+  final intervalController = TextEditingController(text: task.intervalDays.toString());
 
   return showDialog(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        title: const Text('Aufgabe bearbeiten'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                const Text('Alle'),
-                Expanded(
-                  child: Slider(
-                    value: interval.toDouble(),
-                    min: 1,
-                    max: 60,
-                    divisions: 59,
-                    label: '$interval Tage',
-                    onChanged: (v) => setState(() => interval = v.round()),
-                  ),
-                ),
-                Text('$interval Tage'),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Abbrechen'),
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Aufgabe bearbeiten'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Name'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              if (name.isEmpty) return;
-              ref.read(householdTaskRepositoryProvider).updateTask(
-                    id: task.id,
-                    name: name,
-                    intervalDays: interval,
-                  );
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Speichern'),
+          const SizedBox(height: AppSpacing.md),
+          // Zahlenfeld statt Slider – exakte Tage-Werte direkt
+          // eintippbar statt über einen Regler zu treffen.
+          TextField(
+            controller: intervalController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Alle wie viele Tage?'),
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Abbrechen'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final name = nameController.text.trim();
+            final interval = int.tryParse(intervalController.text.trim());
+            if (name.isEmpty || interval == null || interval < 1) return;
+            ref.read(householdTaskRepositoryProvider).updateTask(
+                  id: task.id,
+                  name: name,
+                  intervalDays: interval,
+                );
+            Navigator.pop(dialogContext);
+          },
+          child: const Text('Speichern'),
+        ),
+      ],
     ),
   );
 }

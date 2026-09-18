@@ -1122,3 +1122,76 @@ transparenter Hintergrund bleibt erhalten). Betroffen waren:
 `lighter.png`, `mushroom_hat.png`, `wizard_hat.png`, `beer_crate.png`,
 `ghettoblaster.png`, `spraycan.png`, `ufo.png`. Reine Bild-Dateien,
 kein Dart-Code geändert – die Pfade bleiben identisch.
+
+## Vorrat & Haushalt: Editierbarkeit, Vorlagen, Zyklus-Textfeld, freie Tags
+
+Vier zusammenhängende Komfort-Erweiterungen für die Vorrats- und
+Haushalts-Verwaltung, alle in derselben Runde umgesetzt:
+
+**1. Vorrat: volle Editierbarkeit bestehender Einträge.** Bisher ließ
+sich ein Vorratsartikel nur anlegen, nie nachträglich bearbeiten – es
+gab schlicht kein Edit-Sheet (anders als bei Haushaltsaufgaben, die
+schon `edit_household_task_dialog.dart` hatten). Neu:
+`edit_pantry_item_sheet.dart`, erreichbar per Tippen auf die
+Vorrats-Karte (`pantry_screen.dart`). Editierbar: Name, Menge, MHD,
+Haltbarkeit-nach-Öffnung und Nachkauf-Zyklus, inklusive Löschen-Button.
+`PantryRepository.updateItem(...)` ergänzt für die Felder, die schon
+als Drift-Spalten existieren (Name, Kategorie, MHD, Öffnungsfrist).
+
+**2. Menge & Nachkauf-Zyklus für Vorratsartikel (neu).** Die
+`PantryItems`-Tabelle hat weder ein Mengen- noch ein Zyklus-Feld, und
+die App-DB hat `schemaVersion = 1` ganz ohne `MigrationStrategy` – eine
+neue Spalte hätte also zuerst eine echte Migration gebraucht, die es in
+dieser App noch nie gab, plus einen `build_runner`-Lauf (hier in der
+Sandbox nicht testbar). Stattdessen dieselbe JSON-Sidecar-Architektur
+wie beim Rest dieser App-Runde: `pantry_item_extra.dart` +
+`pantry_extra_providers.dart`, eine einfache
+itemId -> {Menge, Nachkauf-Zyklus in Tagen}-Zuordnung in
+`pantry_item_extras.json`. Wird sowohl beim Anlegen als auch beim
+Bearbeiten mitgepflegt und auf der Vorrats-Karte als kleine Info-Chips
+angezeigt.
+
+**3. Wiederverwendbare Vorlagen für Vorrat & Haushalt.** Beim Anlegen
+eines eigenen (nicht per Preset-Chip gewählten) Vorrats- oder
+Haushaltseintrags gibt es jetzt eine "Als Vorlage speichern"-Checkbox.
+Gespeicherte Vorlagen (`pantry_templates.json` /
+`household_task_templates.json`, je ein neuer
+`PantryTemplate`/`HouseholdTaskTemplate`-Datentyp mit eigenem
+JSON-Store) tauchen danach zusätzlich zu den festen Presets in der
+Autovervollständigung auf (neues wiederverwendbares Widget
+`NameAutocompleteField`, `Autocomplete<String>`-basiert) – Freitext
+bleibt daneben jederzeit möglich. Wählt man eine gespeicherte Vorlage
+aus der Vorschlagsliste, werden ihre Zusatzwerte (Nachkauf-Zyklus bzw.
+Intervall) automatisch vorbefüllt.
+
+**4. Zyklus-Regler durch Zahlenfeld ersetzt.** Der `Slider` für das
+Intervall/den Zyklus (Haushaltsaufgabe anlegen/bearbeiten, jetzt auch
+der neue Vorrats-Nachkauf-Zyklus) ist überall durch ein normales
+`TextField(keyboardType: TextInputType.number)` ersetzt – exakte
+Werte wie 14, 30 oder 90 Tage lassen sich direkt eintippen, statt einen
+Regler auf den richtigen Wert treffen zu müssen.
+
+**5. Echtes, frei erweiterbares Tag-System für den Haushalt.** Der
+alte `TaskTag`-Enum (fest verdrahtet auf nur zwei Werte: 🔥 Dringend /
+☕ Entspannt) ist komplett ersetzt durch ein Nutzer-definiertes
+Tag-System: `household_tag.dart` (Tag = frei wählbarer Name + Emoji),
+`household_tag_providers.dart` (Liste aller angelegten Tags,
+`household_tags.json`) und `household_tag_assignment_providers.dart`
+(taskId -> Set von Tag-IDs, beliebig viele Tags pro Aufgabe möglich,
+`household_task_tag_assignments.json`). Im Drei-Punkte-Menü einer
+Aufgabe gibt es jetzt "Tags verwalten": ein Dialog zum An-/Abhaken
+bestehender Tags UND zum direkten Anlegen neuer Tags (Emoji + Name
+frei wählbar, z. B. 🧹 Putzen, 🛒 Einkauf, ⏱️ Schnell). Zusätzlich neu:
+ein Drei-Punkte-Menü (`Icons.more_vert`) rechts oben im
+Haushalts-AppBar mit dem Eintrag "Nach Tags filtern" – öffnet ein
+Bottom Sheet mit einem `FilterChip` pro angelegtem Tag (Mehrfachauswahl,
+ein Treffer reicht); die Liste zeigt danach nur noch Aufgaben mit
+mindestens einem der aktiven Filter-Tags, ein kleines Badge am
+Drei-Punkte-Icon zeigt die Anzahl aktiver Filter.
+
+⚠️ Achtung: die alten Dringend/Entspannt-Tags (`task_tags.json`) werden
+durch diese Umstellung NICHT automatisch übernommen – wer sie weiter
+braucht, kann sie über "Tags verwalten" als neue, frei benannte Tags
+(z. B. wieder 🔥 Dringend) neu anlegen. Reiner JSON-Sidecar-Stand, keine
+Drift-Migration nötig – `flutter clean && flutter pub get` reicht nach
+dem Anwenden dieses Patches.

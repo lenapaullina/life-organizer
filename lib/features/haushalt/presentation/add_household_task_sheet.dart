@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/name_autocomplete_field.dart';
 import '../application/household_task_providers.dart';
+import '../application/household_task_template_providers.dart';
+import '../domain/household_task_template.dart';
 
 /// Feste Presets für häufige Haushaltsaufgaben. Ein Tap reicht,
 /// um eine Aufgabe anzulegen – Freitext ist nur der Fallback für
@@ -45,17 +48,19 @@ Future<bool?> showAddHouseholdTaskSheet(BuildContext context, WidgetRef ref) {
   );
 }
 
-class _AddHouseholdTaskSheet extends ConsumerStatefulWidget {
-  const _AddHouseholdTaskSheet();
-
-  @override
-  ConsumerState<_AddHouseholdTaskSheet> createState() => _AddHouseholdTaskSheetState();
-}
-
 class _AddHouseholdTaskSheetState extends ConsumerState<_AddHouseholdTaskSheet> {
   bool _showCustomForm = false;
-  final _nameController = TextEditingController();
-  int _customInterval = 7;
+  String _name = '';
+  final _intervalController = TextEditingController(text: '7');
+  bool _saveAsTemplate = false;
+
+  @override
+  void dispose() {
+    _intervalController.dispose();
+    super.dispose();
+  }
+
+  int get _customInterval => int.tryParse(_intervalController.text.trim()) ?? 7;
 
   Future<void> _createFromPreset(_TaskPreset preset) async {
     await ref.read(householdTaskRepositoryProvider).createTask(
@@ -65,17 +70,39 @@ class _AddHouseholdTaskSheetState extends ConsumerState<_AddHouseholdTaskSheet> 
     if (mounted) Navigator.of(context).pop(true);
   }
 
+  void _applyTemplate(HouseholdTaskTemplate template) {
+    setState(() => _intervalController.text = template.intervalDays.toString());
+  }
+
   Future<void> _createCustom() async {
-    if (_nameController.text.trim().isEmpty) return;
+    final name = _name.trim();
+    if (name.isEmpty) return;
+    final interval = _customInterval;
+
     await ref.read(householdTaskRepositoryProvider).createTask(
-          name: _nameController.text.trim(),
-          intervalDays: _customInterval,
+          name: name,
+          intervalDays: interval,
         );
+
+    if (_saveAsTemplate) {
+      await ref
+          .read(householdTaskTemplateProvider.notifier)
+          .saveTemplate(name: name, intervalDays: interval);
+    }
+
     if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final templates = ref.watch(householdTaskTemplateProvider).valueOrNull ?? const [];
+    final suggestionNames = {
+      for (final p in _presets) p.name,
+      for (final t in templates) t.name,
+    }.toList()
+      ..sort();
+    final templateByName = {for (final t in templates) t.name: t};
+
     return Padding(
       padding: EdgeInsets.only(
         left: AppSpacing.md,
@@ -110,27 +137,32 @@ class _AddHouseholdTaskSheetState extends ConsumerState<_AddHouseholdTaskSheet> 
               label: const Text('Eigene Aufgabe eingeben'),
             ),
           ] else ...[
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Name der Aufgabe'),
+            // Freitext mit Autovervollständigung aus Presets + selbst
+            // gespeicherten Vorlagen.
+            NameAutocompleteField(
+              label: 'Name der Aufgabe',
+              suggestions: suggestionNames,
+              onChanged: (value) => _name = value,
+              onSuggestionSelected: (value) {
+                final template = templateByName[value];
+                if (template != null) _applyTemplate(template);
+              },
             ),
             const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                const Text('Alle'),
-                Expanded(
-                  child: Slider(
-                    value: _customInterval.toDouble(),
-                    min: 1,
-                    max: 60,
-                    divisions: 59,
-                    label: '$_customInterval Tage',
-                    onChanged: (v) => setState(() => _customInterval = v.round()),
-                  ),
-                ),
-                Text('$_customInterval Tage'),
-              ],
+            // Zahlenfeld statt Slider – exakte Tage-Werte direkt
+            // eintippbar statt über einen Regler zu treffen.
+            TextField(
+              controller: _intervalController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Alle wie viele Tage?'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Als Vorlage speichern'),
+              value: _saveAsTemplate,
+              onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
             ),
             const SizedBox(height: AppSpacing.sm),
             ElevatedButton(
@@ -143,4 +175,11 @@ class _AddHouseholdTaskSheetState extends ConsumerState<_AddHouseholdTaskSheet> 
       ),
     );
   }
+}
+
+class _AddHouseholdTaskSheet extends ConsumerStatefulWidget {
+  const _AddHouseholdTaskSheet();
+
+  @override
+  ConsumerState<_AddHouseholdTaskSheet> createState() => _AddHouseholdTaskSheetState();
 }

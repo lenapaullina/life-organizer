@@ -366,8 +366,14 @@ class _PastureCell extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+        // Bewusst ein einfacher `Container` statt `AnimatedContainer`:
+        // ein zweiter, unabhängiger Verdachtsmoment für die
+        // Skalierungs-Probleme war die implizite Decoration-Interpolation
+        // von AnimatedContainer (u. a. beim schnellen Umschalten von
+        // `hovering`/`selected` während des Ziehens) – mit einem
+        // schlichten Container entfällt diese Fehlerquelle komplett, nur
+        // der Rahmen wechselt dann ohne Fade-Animation die Farbe.
+        child: Container(
           // Verhindert, dass Gras-/Zaun-Bild oder das Kuh-Artwork über
           // die abgerundeten Ecken hinaus gezeichnet werden.
           clipBehavior: Clip.antiAlias,
@@ -405,7 +411,7 @@ class _PastureCell extends StatelessWidget {
                     // Innenabstands, der unten Platz fürs Level-Badge lässt.
                     Positioned.fill(
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 8, right: 8, bottom: 24),
+                        padding: const EdgeInsets.only(top: 6, left: 6, right: 6, bottom: 22),
                         child: SafeAssetImage(
                           assetPath: cow!.characterType.cardAssetPath,
                           fit: BoxFit.contain,
@@ -419,16 +425,16 @@ class _PastureCell extends StatelessWidget {
                     Positioned(
                       bottom: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.black.withOpacity(0.75),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           'Lv. ${cow!.level}',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

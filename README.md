@@ -1079,3 +1079,18 @@ Runde ist einer festen `Container(height: 280)`-Box mit `Center` +
 Kartenbild sichtbar und zentriert, unabhängig vom tatsächlichen
 Seitenverhältnis des jeweiligen PNGs (das vorher bei `cover` je nach
 Format zu einem Anschnitt oben/links führen konnte).
+
+**Weiden-Kachel: `AnimatedContainer` durch schlichten `Container`
+ersetzt.** Lena meldete, dass Gras und Kuh-Artwork auf der Weide trotz
+des Fixes aus der letzten Runde weiterhin winzig/falsch platziert
+ankommen. Die Struktur (kein `alignment` mehr, `clipBehavior:
+Clip.antiAlias`, Bild in `Positioned.fill` + `Padding`) war inhaltlich
+bereits identisch zu dem, was Lena jetzt nochmal exakt vorgegeben hat –
+als zusätzlicher Verdachtsmoment wurde `AnimatedContainer` (das seine
+`BoxDecoration` bei jedem `setState`, z. B. beim Ziehen einer Kuh,
+implizit interpoliert) durch einen einfachen `Container` ersetzt, um
+diese Fehlerquelle komplett auszuschließen; Innenabstände/Badge-Werte
+1:1 auf Lenas neueste Zahlen abgeglichen. Falls das Problem danach
+immer noch besteht, ist der nächste Verdacht ein Cache-/Build-Problem
+auf dem Gerät (alte APK, `flutter run` nicht neu gestartet nach
+`git am`) statt ein Fehler im Widget-Code selbst.

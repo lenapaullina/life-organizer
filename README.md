@@ -1020,3 +1020,30 @@ und "Moo-Loop"-Ambient-Sound.** Vier Rückmeldungen in einer Runde:
    spielt automatisch wieder, sobald er wieder eingeschaltet wird. Der
    Timer wird beim Verlassen der Weiden-Ansicht sauber gestoppt
    (`dispose`), damit nichts im Hintergrund weiterläuft oder abstürzt.
+
+**Nachbesserung: Zaun wirklich nur als Rahmen, Gras wirklich nur auf
+besetzten Kacheln, Kuh-Artworks sauber zentriert.** Die letzte Runde
+hatte den Zaun/Boden zwar schon als "Rahmen um alles" gedacht (zwei
+verschachtelte Container), auf dem Gerät kam das aber noch als
+flächendeckendes Kachel-Muster bzw. falsch platzierte Textur an. Jetzt
+strikter umgesetzt:
+
+1. **Zaun als vier echte Rand-Streifen statt eines Kachel-Hintergrunds.**
+   `PastureBackgroundWidget` baut die Weide jetzt als `Stack`: ein
+   dunkler Standard-Hintergrund, darüber (mit Innenabstand) das
+   Kuh-Raster, und ON TOP vier separate, `IgnorePointer`-geschützte
+   Streifen (oben/unten/links/rechts, je 14px), die NUR an den
+   Außenkanten das (klein herunterskalierte) Zaun-Bild zeigen – kein
+   Kachel-Muster mehr, das über die ganze Fläche läuft.
+2. **Gras nur auf besetzten Kacheln.** Die Bodentextur ist komplett aus
+   `PastureBackgroundWidget` verschwunden und sitzt jetzt direkt in
+   `_PastureCell` (`cow_pasture_screen.dart`): nur wenn die Kachel eine
+   Kuh hat, bekommt ihre `BoxDecoration` ein `DecorationImage` mit der
+   aktiven Bodentextur (`fit: BoxFit.cover`); leere Kacheln bleiben
+   beim normalen dunklen Karten-Hintergrund der App.
+3. **Kuh-Artworks zentriert mit fixem Padding.** Jede Kachel zeigt ihr
+   Charakter-Bild jetzt in einer `Column` (`MainAxisAlignment.center`)
+   mit `Padding(EdgeInsets.all(8.0))` und `Center` + `BoxFit.contain` –
+   das Bild kann so nicht mehr über den Kachelrand hinausragen oder
+   verzerrt wirken. Die Level-Anzeige sitzt sauber unterhalb des
+   Bildes statt als frei schwebendes Overlay in der Ecke.

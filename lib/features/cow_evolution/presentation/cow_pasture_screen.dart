@@ -163,6 +163,9 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
         data: (pasture) {
           final cowByPosition = {for (final c in pasture.cows) c.position: c};
           final rate = passiveMilkPerMinute(pasture.cows);
+          // Einmal pro Build nachschlagen statt in jeder Kachel neu: alle
+          // Kacheln teilen sich dieselbe aktive Bodentextur.
+          final groundAssetPath = groundById(pasture.activeGroundId).assetPath;
 
           return Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -194,7 +197,6 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
                   child: PastureBackgroundWidget(
-                    groundId: pasture.activeGroundId,
                     fenceId: pasture.activeFenceId,
                     decorationSlots: pasture.decorationSlots,
                     onSlotTap: (slot) => _pickDecoration(slot, pasture.decorationSlots[slot]),
@@ -218,6 +220,7 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                         builder: (context, candidates, rejected) {
                           final cell = _PastureCell(
                             cow: cow,
+                            groundAssetPath: groundAssetPath,
                             selected: selected,
                             highlighted: matchesDrag,
                             dimmed: dimmed,
@@ -239,6 +242,7 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
                                 height: 72,
                                 child: _PastureCell(
                                   cow: cow,
+                                  groundAssetPath: groundAssetPath,
                                   selected: false,
                                   highlighted: true,
                                   dimmed: false,
@@ -319,6 +323,12 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
 
 class _PastureCell extends StatelessWidget {
   final Cow? cow;
+
+  /// Pfad der aktiven Bodentextur – wird als Kachel-Hintergrund NUR
+  /// gerendert, wenn [cow] nicht `null` ist (siehe Anfrage Punkt 2:
+  /// Gras nur auf tatsächlich besetzten Kacheln, leere Felder bleiben
+  /// beim normalen dunklen App-Hintergrund).
+  final String groundAssetPath;
   final bool selected;
   final bool highlighted;
   final bool dimmed;
@@ -328,6 +338,7 @@ class _PastureCell extends StatelessWidget {
 
   const _PastureCell({
     required this.cow,
+    required this.groundAssetPath,
     required this.selected,
     required this.highlighted,
     required this.dimmed,
@@ -356,35 +367,48 @@ class _PastureCell extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
+            // Nur besetzte Kacheln bekommen die Gras-Textur als
+            // Hintergrund; leere Kacheln bleiben beim normalen
+            // (halbtransparenten) Karten-Hintergrund der App.
             color: hovering ? accent.withOpacity(0.25) : baseColor,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(color: borderColor, width: 3),
+            image: cow == null
+                ? null
+                : DecorationImage(
+                    image: AssetImage(groundAssetPath),
+                    fit: BoxFit.cover,
+                    onError: (error, stackTrace) {
+                      debugPrint('Boden-Bild (Kachel) konnte nicht geladen werden: $error');
+                    },
+                  ),
           ),
           alignment: Alignment.center,
           child: cow == null
               ? null
-              : Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: SafeAssetImage(
-                        assetPath: cow!.characterType.cardAssetPath,
-                        fit: BoxFit.contain,
-                        placeholderIcon: Icons.pets,
+              : Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: SafeAssetImage(
+                            assetPath: cow!.characterType.cardAssetPath,
+                            fit: BoxFit.contain,
+                            placeholderIcon: Icons.pets,
+                          ),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      right: 2,
-                      bottom: 2,
-                      child: Container(
+                      const SizedBox(height: 2),
+                      Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.55),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'Lv.${cow!.level}',
+                          'Lv. ${cow!.level}',
                           style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
@@ -392,8 +416,8 @@ class _PastureCell extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
         ),
       ),

@@ -1094,3 +1094,31 @@ diese Fehlerquelle komplett auszuschließen; Innenabstände/Badge-Werte
 immer noch besteht, ist der nächste Verdacht ein Cache-/Build-Problem
 auf dem Gerät (alte APK, `flutter run` nicht neu gestartet nach
 `git am`) statt ein Fehler im Widget-Code selbst.
+
+**Der eigentliche Übeltäter gefunden: un-zugeschnittene Asset-Dateien,
+kein Layout-Bug.** Zwei Screenshots von Lena (Kuh-Profil, Weide) zeigten
+das Problem endlich eindeutig: Charakterkarten erschienen winzig und
+oben links verschoben, die Gras-Textur nur als kleiner Fleck am unteren
+Rand der Kachel – trotz mehrerer Runden korrekter `BoxFit`/`Center`-
+Logik. Eine Kontrolle der PNG-Dateien selbst (`PIL`/`Pillow`,
+`Image.getbbox()`) zeigte den wahren Grund: 22 der Asset-Dateien
+(alle 6 Charakterkarten, 3 Fell-Muster/Weiden-Böden, mehrere
+Accessoires/Deko) waren wie schon einmal bei `dekozaun-asset.png`
+(siehe Bugfix weiter oben) nie auf ihr eigentliches Motiv zugeschnitten
+worden, sondern als komplettes Referenzblatt exportiert – das
+sichtbare Motiv nutzte teils nur 3–16 % der PNG-Leinwand, der Rest war
+transparent. `BoxFit.contain`/`cover` skaliert aber immer relativ zur
+GESAMTEN Bilddatei, nicht zum sichtbaren Inhalt – bei einer Leinwand,
+die zu 90 % leer ist, macht das jedes Motiv winzig und (je nachdem, wo
+das Motiv auf dem Referenzblatt saß) in eine beliebige Ecke verschoben.
+Keine Menge an Flutter-Layout-Code hätte das beheben können.
+
+Fix: alle betroffenen PNGs automatisiert auf ihre tatsächliche
+Alpha-Bounding-Box zugeschnitten (`Image.getbbox()` + 12px Rand,
+transparenter Hintergrund bleibt erhalten). Betroffen waren:
+`cow_card_{boss,chiller,diva,hippie,raver,street}.png`,
+`pattern_{giraffe,milka,neon}.png`, `ground_{wiese,space}.png`,
+`cigarette_pack.png`, `flower_crown.png`, `gold_chain.png`, `joint.png`,
+`lighter.png`, `mushroom_hat.png`, `wizard_hat.png`, `beer_crate.png`,
+`ghettoblaster.png`, `spraycan.png`, `ufo.png`. Reine Bild-Dateien,
+kein Dart-Code geändert – die Pfade bleiben identisch.

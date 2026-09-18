@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,11 +34,61 @@ class _CowPastureScreenState extends ConsumerState<CowPastureScreen> {
   String? _selectedId;
   int? _draggingLevel;
 
+  // "Moo-Loop": solange die Weide offen ist, meldet sich in
+  // unregelmäßigen Abständen (8-15s) zufällig eine der stehenden Kühe
+  // – mit ihrer eigenen Sprachmemo, falls vorhanden, sonst mit dem
+  // Standard-Muh (siehe app_settings_providers.dart für die dort
+  // verwendeten Sound-Assets). Eigener Player statt des globalen
+  // Sound-Effekt-Players, damit ein laufendes Ambient-Muh nicht mit
+  // einem Merge-/Task-Sound um denselben Player konkurriert.
+  final _ambientPlayer = AudioPlayer();
+  final _ambientRandom = Random();
+  Timer? _ambientTimer;
+
   @override
   void initState() {
     super.initState();
     // Passive Milch seit dem letzten Besuch beim Öffnen gutschreiben.
     Future.microtask(() => ref.read(cowPastureProvider.notifier).collectPassiveIncome());
+    _scheduleAmbientMoo();
+  }
+
+  void _scheduleAmbientMoo() {
+    final delay = Duration(seconds: 8 + _ambientRandom.nextInt(8)); // 8-15s
+    _ambientTimer = Timer(delay, _playAmbientMoo);
+  }
+
+  Future<void> _playAmbientMoo() async {
+    if (!mounted) return;
+    final soundEnabled = ref.read(appSettingsProvider).soundEnabled;
+    final cows = ref.read(cowPastureProvider).valueOrNull?.cows ?? const <Cow>[];
+    if (soundEnabled && cows.isNotEmpty) {
+      final cow = cows[_ambientRandom.nextInt(cows.length)];
+      try {
+        // Eigene Sprachmemo bevorzugt, sonst Fallback auf den Standard-
+        // Kuh-Sound – fire-and-forget mit Fehlerabfang wie überall bei
+        // der Audiowiedergabe: ein Problem hier darf nie die Weide zum
+        // Absturz bringen, im schlimmsten Fall bleibt es nur stumm.
+        if (cow.voiceMemoPath != null) {
+          await _ambientPlayer.play(DeviceFileSource(cow.voiceMemoPath!));
+        } else {
+          await _ambientPlayer.play(AssetSource('sounds/Mudchute_cow_1.ogg'));
+        }
+      } catch (error) {
+        if (kDebugMode) debugPrint('Weiden-Loop-Sound fehlgeschlagen: $error');
+      }
+    }
+    // Nächste Runde planen, unabhängig davon ob diesmal gespielt wurde
+    // (z. B. Sound war aus oder keine Kuh vorhanden) – so springt der
+    // Loop automatisch wieder an, sobald wieder Kühe da sind/Sound an ist.
+    if (mounted) _scheduleAmbientMoo();
+  }
+
+  @override
+  void dispose() {
+    _ambientTimer?.cancel();
+    _ambientPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _merge(String idA, String idB) async {
@@ -308,11 +363,36 @@ class _PastureCell extends StatelessWidget {
           alignment: Alignment.center,
           child: cow == null
               ? null
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
+              : Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Text(emojiForCowLevel(cow!.level), style: const TextStyle(fontSize: 26)),
-                    Text('Lv. ${cow!.level}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: SafeAssetImage(
+                        assetPath: cow!.characterType.cardAssetPath,
+                        fit: BoxFit.contain,
+                        placeholderIcon: Icons.pets,
+                      ),
+                    ),
+                    Positioned(
+                      right: 2,
+                      bottom: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Lv.${cow!.level}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
         ),

@@ -4,11 +4,12 @@ import '../../../core/assets/cow_asset_registry.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../domain/cow_accessory.dart';
 
-/// Weiden-Hintergrund: wechselbare Bodentextur + Zaun-Streifen +
-/// feste Deko-Slots (siehe Anfrage Punkt 2/3 – bewusst KEIN freies
-/// Canvas-Dragging, sondern ein einfaches Slot-System: gekaufte
-/// Deko-Objekte werden einem der [decorationSlots] zugewiesen und
-/// dort als PNG gerendert).
+/// Weiden-Hintergrund: wechselbare Bodentextur, die als echter
+/// Hintergrund hinter dem gesamten Kuh-Raster liegt, ein Zaun als
+/// Rahmen drumherum, sowie feste Deko-Slots (siehe Anfrage Punkt 2/3
+/// – bewusst KEIN freies Canvas-Dragging, sondern ein einfaches
+/// Slot-System: gekaufte Deko-Objekte werden einem der
+/// [decorationSlots] zugewiesen und dort als PNG gerendert).
 class PastureBackgroundWidget extends StatelessWidget {
   final String groundId;
   final String fenceId;
@@ -37,45 +38,23 @@ class PastureBackgroundWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                child: SafeAssetImage(
-                  assetPath: ground.assetPath,
-                  fit: BoxFit.cover,
-                  placeholderIcon: Icons.grass_outlined,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: child,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        // Zaun-Streifen: rein dekorativ, keine eigene Interaktion.
-        //
-        // Bewusst NICHT BoxFit.cover auf das ganze (sehr viel breitere
-        // als hohe) Zaun-Bild: cover skaliert dabei so stark hoch, dass
-        // am Ende nur ein winziger, riesig wirkender Ausschnitt sichtbar
-        // ist ("Zäune viel zu groß"). Stattdessen wird das Bild auf die
-        // Streifenhöhe herunterskaliert (fitHeight, Seitenverhältnis
-        // bleibt erhalten) und dann mehrfach nebeneinander wiederholt
-        // (repeatX) – so bleiben die einzelnen Zaunpfosten klein und
-        // erkennbar, wie ein echter durchlaufender Zaun.
-        SizedBox(
-          height: 36,
+          // Der Zaun ist jetzt ein echter RAHMEN um die ganze Weide statt
+          // eines separaten, lose wirkenden Streifens darunter: die
+          // äußere Box zeigt das (klein gekachelte) Zaun-Bild als
+          // Hintergrund, die Innen-Box mit der Bodentextur sitzt mit
+          // etwas Abstand darin – der sichtbare Rand dazwischen IST der
+          // Zaun. `ResizeImage` skaliert das Zaun-PNG vorab auf eine
+          // kleine Kachelgröße, bevor `repeat` es mehrfach nebeneinander
+          // zeichnet (dieselbe "klein und erkennbar statt riesig
+          // wirkend"-Überlegung wie zuvor, nur jetzt als Fläche statt
+          // als einzelner Streifen).
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
               color: Colors.black12, // sichtbar, falls das Bild mal fehlschlägt
               image: DecorationImage(
-                image: AssetImage(fence.assetPath),
-                fit: BoxFit.fitHeight,
-                repeat: ImageRepeat.repeatX,
+                image: ResizeImage(AssetImage(fence.assetPath), width: 96),
+                repeat: ImageRepeat.repeat,
                 // Fail-Safe: schlägt das Bild fehl, wird der Fehler nur
                 // geloggt statt die App abstürzen zu lassen (DecorationImage
                 // hat kein `errorBuilder` wie Image.asset, siehe
@@ -85,6 +64,25 @@ class PastureBackgroundWidget extends StatelessWidget {
                   debugPrint('Zaun-Bild konnte nicht geladen werden: $error');
                 },
               ),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius - 4),
+                color: Colors.black12,
+                // Die Bodentextur füllt jetzt wirklich die komplette
+                // Fläche hinter dem Kuh-Raster (nicht nur eine einzelne,
+                // isoliert wirkende Bild-Kachel irgendwo am Rand).
+                image: DecorationImage(
+                  image: AssetImage(ground.assetPath),
+                  fit: BoxFit.cover,
+                  onError: (error, stackTrace) {
+                    debugPrint('Boden-Bild konnte nicht geladen werden: $error');
+                  },
+                ),
+              ),
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: child,
             ),
           ),
         ),

@@ -5,11 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
 
 import '../../../core/assets/cow_asset_registry.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/utils/voice_memo_storage.dart';
+import '../../../shared/widgets/myspace_badge.dart';
+import '../../../shared/widgets/myspace_card.dart';
 import '../application/cow_pasture_providers.dart';
 import '../domain/cow.dart';
 import '../domain/cow_accessory.dart';
+
+/// Glow-/Rahmenfarbe der Profilkarte, je nach Kuh-Level – dieselbe
+/// grobe Rarität wie bei `emojiForCowLevel` (cow.dart), nur auf die
+/// beiden vorhandenen Neon-Akzentfarben abgebildet statt auf Emojis.
+Color _levelGlowColor(int level) => level >= 5 ? AppColors.accentCyan : AppColors.accent;
 
 /// Öffnet das Kuh-Profil als Bottom-Sheet (siehe [CowProfileModal]).
 Future<void> showCowProfileModal(BuildContext context, String cowId) {
@@ -144,112 +152,212 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
             .where((a) => pasture.isItemUnlocked(a.id, a.price))
             .toList();
 
+        final glow = _levelGlowColor(cow.level);
+
         return DraggableScrollableSheet(
           initialChildSize: 0.85,
           minChildSize: 0.5,
           maxChildSize: 0.95,
           expand: false,
           builder: (context, scrollController) {
-            return ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: [
-                Center(
-                  child: SafeAssetImage(
-                    assetPath: cow.characterType.cardAssetPath,
-                    height: 260,
-                    fit: BoxFit.contain,
-                    placeholderIcon: Icons.grass_outlined,
+            // Eigener abgerundeter Container mit Drag-Handle statt des
+            // Standard-Sheet-Hintergrunds: vermeidet die unsauberen,
+            // eckigen Ränder am oberen Bildschirmrand und macht auf den
+            // ersten Blick klar, dass sich das Sheet ziehen lässt.
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.cardRadius + 8)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.textSecondary,
+                      borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          labelText: 'Name',
-                          hintText: cow.characterType.displayName,
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      children: [
+                        MySpaceCard(
+                          title: cow.displayName,
+                          headerColor: glow,
+                          icon: Icons.pets,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Festes Seitenverhältnis statt fester Höhe:
+                              // die Karte bleibt so immer proportional und
+                              // kann nie über den verfügbaren Platz hinaus
+                              // ragen (Ursache des früheren Overflow-Bugs).
+                              AspectRatio(
+                                aspectRatio: 3 / 4,
+                                child: Container(
+                                  clipBehavior: Clip.antiAlias,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                                    border: Border.all(color: glow, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(color: glow.withOpacity(0.45), blurRadius: 16),
+                                    ],
+                                  ),
+                                  child: SafeAssetImage(
+                                    assetPath: cow.characterType.cardAssetPath,
+                                    fit: BoxFit.cover,
+                                    placeholderIcon: Icons.grass_outlined,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              Center(
+                                child: MySpaceBadge(
+                                  label: cow.displayName.toUpperCase(),
+                                  color: glow,
+                                  icon: Icons.star,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _nameController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Name ändern',
+                                        hintText: cow.characterType.displayName,
+                                        isDense: true,
+                                      ),
+                                      onSubmitted: (value) => notifier.renameCow(cow.id, value),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  IconButton(
+                                    icon: const Icon(Icons.check),
+                                    tooltip: 'Namen speichern',
+                                    onPressed: () => notifier.renameCow(cow.id, _nameController.text),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              // Wrap statt fixer Label-Spalte: lange Werte
+                              // (z. B. ein langer Ursprungs-Task-Name)
+                              // brechen so sauber um statt abgeschnitten
+                              // zu werden.
+                              Wrap(
+                                spacing: AppSpacing.sm,
+                                runSpacing: AppSpacing.sm,
+                                children: [
+                                  MySpaceBadge(
+                                    label: 'Level ${cow.level}',
+                                    color: AppColors.accentCyan,
+                                    icon: Icons.trending_up,
+                                  ),
+                                  MySpaceBadge(
+                                    label: _formatDate(cow.createdAt),
+                                    color: AppColors.accentCyan,
+                                    icon: Icons.cake_outlined,
+                                  ),
+                                  MySpaceBadge(
+                                    label: cow.originLabel ?? 'Unbekannt',
+                                    color: AppColors.accentCyan,
+                                    icon: Icons.auto_awesome,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        onSubmitted: (value) => notifier.renameCow(cow.id, value),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    IconButton(
-                      icon: const Icon(Icons.check),
-                      tooltip: 'Namen speichern',
-                      onPressed: () => notifier.renameCow(cow.id, _nameController.text),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _InfoRow(label: 'Charakter', value: cow.characterType.displayName),
-                _InfoRow(label: 'Level', value: '${cow.level}'),
-                _InfoRow(label: 'Entstanden', value: _formatDate(cow.createdAt)),
-                _InfoRow(label: 'Ursprung', value: cow.originLabel ?? 'Unbekannt'),
-                const SizedBox(height: AppSpacing.lg),
-                Text('Sprachmemo ("Muh")', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  cow.voiceMemoPath == null
-                      ? 'Noch keine Aufnahme vorhanden.'
-                      : 'Eine Aufnahme ist gespeichert – neu aufnehmen ersetzt sie.',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    // Expanded statt der Buttons direkt in der Row: siehe
-                    // README-Eintrag zum Layout-Crash bei ElevatedButton/
-                    // OutlinedButton in einer Row (unendliche Mindestbreite
-                    // aus dem Button-Theme) – exakt dasselbe Muster war
-                    // hier die Ursache für den schwarzen Profil-Screen.
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _toggleRecording(cow),
-                        icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic_none),
-                        label: Text(_isRecording ? 'Stopp' : 'Aufnehmen'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: cow.voiceMemoPath == null
-                            ? () => ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Noch kein Memo aufgenommen.')),
+                        const SizedBox(height: AppSpacing.md),
+                        MySpaceCard(
+                          title: 'Sprachmemo ("Muh")',
+                          headerColor: AppColors.accentCyan,
+                          icon: Icons.graphic_eq,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                cow.voiceMemoPath == null
+                                    ? 'Noch keine Aufnahme vorhanden.'
+                                    : 'Eine Aufnahme ist gespeichert – neu aufnehmen ersetzt sie.',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Row(
+                                children: [
+                                  // Expanded statt der Buttons direkt in der
+                                  // Row: siehe README-Eintrag zum
+                                  // Layout-Crash bei ElevatedButton/
+                                  // OutlinedButton in einer Row (unendliche
+                                  // Mindestbreite aus dem Button-Theme) –
+                                  // exakt dasselbe Muster war hier die
+                                  // Ursache für den schwarzen Profil-Screen.
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _toggleRecording(cow),
+                                      icon: Icon(
+                                        _isRecording ? Icons.stop_circle_outlined : Icons.mic_none,
+                                      ),
+                                      label: Text(_isRecording ? 'Stopp' : 'Aufnehmen'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: cow.voiceMemoPath == null
+                                          ? () => ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Noch kein Memo aufgenommen.'),
+                                                ),
+                                              )
+                                          : () => _togglePlayback(cow.voiceMemoPath!),
+                                      icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
+                                      label: Text(_isPlaying ? 'Stopp' : 'Abspielen'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        MySpaceCard(
+                          title: 'Accessoires',
+                          icon: Icons.checkroom,
+                          child: ownedAccessories.isEmpty
+                              ? const Text(
+                                  'Noch keine Accessoires freigeschaltet – im Milch-Shop erhältlich.',
+                                  style: TextStyle(fontSize: 13),
                                 )
-                            : () => _togglePlayback(cow.voiceMemoPath!),
-                        icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
-                        label: Text(_isPlaying ? 'Stopp' : 'Abspielen'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text('Accessoires', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: AppSpacing.xs),
-                if (ownedAccessories.isEmpty)
-                  const Text(
-                    'Noch keine Accessoires freigeschaltet – im Milch-Shop erhältlich.',
-                    style: TextStyle(fontSize: 13),
-                  )
-                else
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: [
-                      for (final item in ownedAccessories)
-                        FilterChip(
-                          avatar: SafeAssetImage(assetPath: item.assetPath, width: 20, height: 20),
-                          label: Text(item.name),
-                          selected: cow.equippedAccessoryIds.contains(item.id),
-                          onSelected: (_) => notifier.toggleAccessory(cow.id, item.id),
+                              : Wrap(
+                                  spacing: AppSpacing.sm,
+                                  runSpacing: AppSpacing.sm,
+                                  children: [
+                                    for (final item in ownedAccessories)
+                                      FilterChip(
+                                        avatar: SafeAssetImage(
+                                          assetPath: item.assetPath,
+                                          width: 20,
+                                          height: 20,
+                                        ),
+                                        label: Text(item.name),
+                                        selected: cow.equippedAccessoryIds.contains(item.id),
+                                        onSelected: (_) => notifier.toggleAccessory(cow.id, item.id),
+                                      ),
+                                  ],
+                                ),
                         ),
-                    ],
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
+                    ),
                   ),
-                const SizedBox(height: AppSpacing.lg),
-              ],
+                ],
+              ),
             );
           },
         );
@@ -259,28 +367,6 @@ class _CowProfileModalState extends ConsumerState<CowProfileModal> {
 
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
 }
 
 extension _FirstOrNullExt<T> on Iterable<T> {

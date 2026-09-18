@@ -973,3 +973,50 @@ Sandbox weiterhin keinen pub.dev-Zugriff hat, bitte nach dem Einspielen
 einmal `flutter clean && flutter pub get` laufen lassen (nicht nur
 `pub get` alleine), damit eine alte, im Cache liegende `pubspec.lock`-
 Auflösung nicht versehentlich wiederverwendet wird.
+
+**Weiden-Grid/Zaun-Fix, echte Charakter-Artworks im Raster, Profil-Redesign
+und "Moo-Loop"-Ambient-Sound.** Vier Rückmeldungen in einer Runde:
+
+1. **Zaun als echter Rahmen statt loser Streifen.** Der Zaun-Streifen
+   unter dem Weiden-Raster wirkte lose/unverbunden. `PastureBackgroundWidget`
+   baut die Weide jetzt als zwei ineinander verschachtelte Container:
+   die äußere Box zeigt das (mit `ResizeImage` klein herunterskalierte
+   und gekachelte) Zaun-Bild als Hintergrund, die innere Box mit der
+   Bodentextur sitzt mit 14px Abstand darin – der sichtbare Rand
+   dazwischen IST jetzt der Zaun, umschließt also wirklich die ganze
+   Weide statt darunter zu schweben.
+2. **Bodentextur füllt wirklich die ganze Weide.** War architektonisch
+   schon als Hintergrund hinter dem Raster gedacht, ist jetzt (im Zuge
+   der Container-Verschachtelung von Punkt 1) nochmal sauber als
+   `BoxFit.cover`-Hintergrund der inneren Box umgesetzt – keine
+   isoliert wirkende Einzel-Kachel mehr.
+3. **Echte Charakter-Artworks statt Emoji im Kuh-Raster.** Jede
+   besetzte Kachel zeigt jetzt `cow.characterType.cardAssetPath` (das
+   PNG-Artwork, `BoxFit.contain`) statt des bisherigen 🐄-Emojis; das
+   Level sitzt als kleines Overlay-Badge unten rechts in der Kachel.
+   `emojiForCowLevel` bleibt als Fallback-Funktion für andere Stellen
+   bestehen, wird im Raster aber nicht mehr benutzt.
+4. **Profil-Modal neu gestaltet + Overflow-Fix.** Nutzt jetzt die
+   vorhandenen MySpace/Y2K-Bausteine (`MySpaceCard`, `MySpaceBadge`)
+   statt einer eigenen Ad-hoc-Optik: Charakterkarte in einer festen
+   `AspectRatio`-Box mit Neon-Glow-Rand (dadurch kein Overflow mehr
+   möglich, egal wie hoch das Sheet gerade gezogen ist), Name als
+   Retro-Badge, Level/Entstehungsdatum/Ursprung als umbrechende
+   `Wrap`-Badges statt einer festen 100px-Label-Spalte (dort konnten
+   lange Ursprungs-Texte vorher eng werden). Zusätzlich ein
+   abgerundeter Sheet-Container mit Drag-Handle statt der
+   Standard-Sheet-Kante, damit die oberen Ecken nicht mehr eckig/
+   unsauber wirken.
+5. **Neu: "Moo-Loop" – Ambient-Sound auf der Weide.** Solange die
+   Weiden-Ansicht offen ist, meldet sich per `Timer` alle 8–15 Sekunden
+   (Intervall wird nach jeder Runde neu zufällig gewählt) eine
+   zufällige der aktuell stehenden Kühe zu Wort: mit ihrer eigenen
+   Sprachmemo, falls vorhanden, sonst mit dem Standard-Kuh-Sound
+   (`Mudchute_cow_1.ogg`). Nutzt einen eigenen `AudioPlayer` (nicht den
+   globalen Sound-Effekt-Player aus den Einstellungen, damit sich
+   Ambient-Muh und z. B. ein Merge-Sound nicht gegenseitig
+   unterbrechen) und respektiert den globalen Sound-Schalter – ist er
+   aus, bleibt der Loop stumm, läuft aber weiter im Hintergrund und
+   spielt automatisch wieder, sobald er wieder eingeschaltet wird. Der
+   Timer wird beim Verlassen der Weiden-Ansicht sauber gestoppt
+   (`dispose`), damit nichts im Hintergrund weiterläuft oder abstürzt.

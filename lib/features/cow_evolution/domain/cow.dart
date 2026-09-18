@@ -106,11 +106,12 @@ class Cow {
       );
 }
 
-/// Kuh-Emoji je nach Level – ab Level 5 wird's golden/episch, damit
-/// hohe Level auch visuell erkennbar besonders bleiben. Wird weiterhin
-/// als kompakte Darstellung auf der Weiden-Kachel benutzt (die volle
-/// Charakterkarte ist zu groß für ein 4x4-Raster) – siehe README für
-/// die Scoping-Begründung.
+/// Kuh-Emoji je nach Level – ab Level 5 wird's golden/episch. Wird auf
+/// der Weiden-Kachel NICHT mehr benutzt (dort zeigt jede Kachel jetzt
+/// das echte Charakter-Artwork der Kuh, siehe `cow_pasture_screen.dart`
+/// bzw. README), bleibt aber als kompakter Fallback für Stellen
+/// stehen, an denen ein volles Karten-Bild zu groß wäre (z. B. eine
+/// künftige Text-Benachrichtigung).
 String emojiForCowLevel(int level) {
   if (level >= 7) return '🌈🐄';
   if (level >= 5) return '✨🐄';
